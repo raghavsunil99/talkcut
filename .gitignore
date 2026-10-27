@@ -6,3 +6,5 @@ vendor/cmake-venv/
 vendor/facedetect/facedetect
 dist/
 vendor/win/
+mobile/www/
+android-signing/

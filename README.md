@@ -82,3 +82,17 @@ One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine
 
 On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is hidden
 (it uses macOS Vision), and captions use Nirmala UI / Segoe UI.
+
+## Android app
+
+`npm run dist:android` builds `android/app/build/outputs/apk/release/app-release.apk`.
+
+- The editor in `src/renderer` runs inside Capacitor. `mobile/bridge.js` stands in for the
+  desktop back end: IndexedDB for projects and videos, ElevenLabs for transcription, and
+  ffmpeg.wasm running the same export recipe (`src/renderer/render-plan.js`). Finished videos
+  are saved to Documents/Talkcut and offered to the share sheet.
+- `mobile/mobile.css` is the phone layout, `mobile/touch.js` turns finger drags into the mouse
+  events the editor uses, and `mobile/fonts` holds Noto fonts (OFL) for the caption scripts.
+- `scripts/build-android-web.js` assembles `mobile/www` (not in git) for Capacitor.
+- Needs JDK 21 (`brew install openjdk@21`) and the Android SDK (`android/local.properties`).
+- Release signing key: `android-signing/` (not in git). Keep it: updates must use the same key.

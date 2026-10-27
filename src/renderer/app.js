@@ -12,10 +12,20 @@
   const baseName = (p) => p.split(/[\\/]/).pop();
 
   // Windows: Ctrl instead of ⌘ in every label, hint and message, and PC words instead of Mac ones.
+  const IS_MOBILE = cutline.platform === 'android';
   const IS_WIN = cutline.platform === 'win32';
   document.documentElement.dataset.platform = cutline.platform;
   function forPlatform(text) {
-    if (!IS_WIN || !text) return text;
+    if (!text) return text;
+    if (IS_MOBILE) {
+      return String(text)
+        .replace(/Keys are stored encrypted on this Mac/g, 'Keys are kept on this phone only')
+        .replace(/transcribes it on this Mac/g, 'transcribes it with ElevenLabs')
+        .replace(/ on this Mac/g, ' on this phone').replace(/this Mac/g, 'this phone')
+        .replace(/\bClick /g, 'Tap ').replace(/\bclick /g, 'tap ').replace(/double-click/g, 'double-tap')
+        .replace(/ \((?:⇧|⌥)?⌘[^)]*\)/g, '').replace(/(?:⇧|⌥)?⌘\S+/g, '').replace(/Ctrl\+\S+/g, '');
+    }
+    if (!IS_WIN) return text;
     return String(text)
       .replace(/⇧⌘/g, 'Ctrl+Shift+').replace(/⌥⌘/g, 'Ctrl+Alt+').replace(/⌘/g, 'Ctrl+')
       .replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+')
@@ -23,7 +33,7 @@
       .replace(/this Mac/g, 'this PC').replace(/your Mac/g, 'your PC').replace(/Match Mac/g, 'Match Windows');
   }
   function localize(rootEl) {
-    if (!IS_WIN) return;
+    if (!IS_WIN && !IS_MOBILE) return;
     const walk = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
       const t = forPlatform(n.nodeValue);
@@ -35,7 +45,7 @@
       if (el.placeholder) { const t = forPlatform(el.placeholder); if (t !== el.placeholder) el.placeholder = t; }
     }
   }
-  if (IS_WIN) {
+  if (IS_WIN || IS_MOBILE) {
     localize(document.body);
     new MutationObserver((list) => {
       for (const m of list) for (const n of m.addedNodes) localize(n.nodeType === 1 ? n : n.parentNode ?? document.body);
@@ -1854,6 +1864,8 @@
     lang.value = els.language.value || 'auto';
     $('engine-remember').checked = false;
     engineChoice = remembered && !(remembered === 'cloud' && !hasElevenLabsKey) && (allowSkip || remembered !== 'skip') ? remembered : (els.quality.value || 'fast');
+    // Android only has ElevenLabs: without a key, start on Skip.
+    if (IS_MOBILE && engineChoice !== 'skip' && (engineChoice !== 'cloud' || !hasElevenLabsKey)) engineChoice = hasElevenLabsKey ? 'cloud' : (allowSkip ? 'skip' : 'cloud');
     const paint = () => {
       dlg.querySelectorAll('[data-engine]').forEach((b) => b.classList.toggle('on', b.dataset.engine === engineChoice));
       $('engine-go').textContent = engineChoice === 'skip' ? 'Open without transcript' : 'Transcribe';
@@ -2005,6 +2017,10 @@
     onToast: (msg) => toast(msg),
     currentPath: () => state.projectPath,
   });
+  if (IS_MOBILE) {
+    const hint = $('home-folder')?.parentElement;
+    if (hint) hint.textContent = 'Projects and their videos are saved on this phone. Export a finished video to share it.';
+  }
 
   async function showHome() {
     if (state.dirty && state.projectPath) await autosave();
@@ -2038,7 +2054,7 @@
       const pair = (r) => Array.isArray(r) && r.length === 2 && r.every(Number.isFinite);
       state.splits = (project.splits ?? []).filter(Number.isFinite);
       state.rangeCuts = (project.rangeCuts ?? []).filter(pair);
-      const withUrls = (tracks) => tracks.map((t) => ({ ...t, items: t.items.map((i) => (i.path ? { ...i, url: fileUrl(i.path) } : i)) }));
+      const withUrls = (tracks) => tracks.map((t) => ({ ...t, items: t.items.map((i) => (i.path ? { ...i, url: cutline.mediaUrl ? cutline.mediaUrl(i.path) : fileUrl(i.path) } : i)) }));
       state.tracks = withUrls(project.tracks
         ? T.normalize(project.tracks)
         : T.fromBroll(project.broll.map((b) => ({ ...b.media, id: b.id, name: b.name ?? b.media.name, start: b.start, length: b.length, offset: b.offset }))));

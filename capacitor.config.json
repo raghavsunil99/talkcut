@@ -1,0 +1,13 @@
+{
+  "appId": "com.raghav.talkcut",
+  "appName": "Talkcut by Raghav",
+  "webDir": "mobile/www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#1b1a1f",
+    "adjustMarginsForEdgeToEdge": "force"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

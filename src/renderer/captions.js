@@ -48,9 +48,14 @@
   const WINDOWS = (typeof process !== 'undefined' && process.platform === 'win32')
     || (typeof navigator !== 'undefined' && /Win/.test(navigator.platform || ''));
   // Windows ships Nirmala UI for every Indian script and Segoe UI for Latin text.
-  const LATIN_FONT = WINDOWS ? 'Segoe UI' : 'Avenir Next';
+  const LATIN_FONT = (typeof window !== 'undefined' && window.cutline?.platform === 'android') ? 'Noto Sans' : WINDOWS ? 'Segoe UI' : 'Avenir Next';
+
+  // The Android app ships Noto fonts for every script it supports.
+  const MOBILE = typeof window !== 'undefined' && window.cutline?.platform === 'android';
+  const NOTO = { te: 'Noto Sans Telugu', hi: 'Noto Sans Devanagari', mr: 'Noto Sans Devanagari', bn: 'Noto Sans Bengali', kn: 'Noto Sans Kannada', ta: 'Noto Sans Tamil', ml: 'Noto Sans Malayalam' };
 
   function fontFor(language) {
+    if (MOBILE) return NOTO[language] ?? 'Noto Sans';
     if (WINDOWS) return SCRIPT_FONTS[language] ? 'Nirmala UI' : LATIN_FONT;
     return SCRIPT_FONTS[language] ?? LATIN_FONT;
   }

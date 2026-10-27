@@ -95,7 +95,7 @@
       };
       action('✎', 'Rename', () => this.rename(p, name));
       action('⧉', 'Duplicate', () => this.duplicate(p));
-      action('⌕', 'Show in Finder', () => cutline.revealProject(p.path));
+      if (cutline.platform !== 'android') action('⌕', 'Show in Finder', () => cutline.revealProject(p.path));
       action('🗑', 'Move to Trash', () => this.trash(p));
       card.append(thumb, name, meta, actions);
       card.addEventListener('click', () => this.onOpen(p.path));

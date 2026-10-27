@@ -7,8 +7,11 @@ from the video. It works well for Telugu and English talking-head reels.
 It understands Telugu, Tamil, Malayalam, Kannada, Hindi, English and more, including
 everyday mixed speech (Telugu with English words, and so on).
 
-You need: a Windows 10/11 PC (64-bit) or a Mac with Apple silicon (M1 or newer, macOS 13+),
-about 2 GB of free space, and internet for the first transcription.
+You need one of:
+  • a Windows 10/11 PC (64-bit)
+  • a Mac with Apple silicon (M1 or newer, macOS 13+)
+  • an Android phone or tablet (Android 7 or newer)
+plus about 2 GB of free space, and internet for transcription.
 
 
 1A. INSTALL ON WINDOWS
@@ -32,6 +35,26 @@ about 2 GB of free space, and internet for the first transcription.
    System Settings → Privacy & Security → scroll down → next to "Talkcut by Raghav was
    blocked" click  Open Anyway  → enter your Mac password → Open.
    You only do this once.
+
+
+1C. INSTALL ON ANDROID
+----------------------
+1. Copy  Talkcut-by-Raghav-1.0.0.apk  to the phone (WhatsApp it to yourself, Google Drive,
+   or a USB cable) and tap it.
+2. Android asks whether to allow installing apps from that source (Chrome, Files, WhatsApp…).
+   Tap  Settings  → turn on  "Allow from this source"  → go back → Install.
+3. If Play Protect warns that the app is unknown, tap  More details  →  Install anyway.
+4. Open "Talkcut by Raghav" from your apps.
+
+On the phone:
+  • Transcription uses ElevenLabs only, so add your ElevenLabs key first (key icon at the top).
+    Without a key you can still cut on the timeline and add text.
+  • The buttons along the bottom open AI tools, Properties, Captions, Elements and Media.
+    The ▭ button at the top shows the timeline.
+  • Export makes the video on the phone. It is saved in  Documents › Talkcut  and the share
+    menu opens, so you can send it straight to Instagram, WhatsApp or Photos.
+  • Phones are slower than computers: short reels (up to about 2 minutes) work best. Use the
+    Windows or Mac app for long videos.
 
 
 2. MAKE YOUR FIRST VIDEO
@@ -67,7 +90,7 @@ Your projects save by themselves in  Documents › Talkcut Projects.
 • Transcription is very slow: use ElevenLabs, or start with a shorter clip.
 • Fast transcription fails straight away: reinstall Talkcut and click Yes when it asks to
   install Microsoft Visual C++.
-• Auto-frame is only on the Mac version. On Windows, use Crop on the video instead.
+• Auto-frame is only on the Mac version. On Windows and Android, use Crop on the video instead.
 
 
 Talkcut is built by Raghav.

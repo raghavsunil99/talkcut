@@ -1,0 +1,86 @@
+/* Talkcut on Android: phone layout on top of the desktop styles. On a tablet held sideways
+   (wider than 900 px) the desktop layout is kept. */
+
+@font-face { font-family: "Noto Sans"; src: url("fonts/NotoSans.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Telugu"; src: url("fonts/NotoSansTelugu.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Tamil"; src: url("fonts/NotoSansTamil.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Malayalam"; src: url("fonts/NotoSansMalayalam.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Kannada"; src: url("fonts/NotoSansKannada.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("fonts/NotoSansDevanagari.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Noto Sans Bengali"; src: url("fonts/NotoSansBengali.ttf"); font-weight: 100 900; }
+
+:root[data-platform="android"] body { font-family: "Noto Sans", "Noto Sans Telugu", sans-serif; -webkit-tap-highlight-color: transparent; }
+:root[data-platform="android"] .transcript { font-family: var(--transcript-font, "Noto Sans", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Malayalam", sans-serif); }
+/* Things the phone version doesn't have. */
+:root[data-platform="android"] #prop-autoframe,
+:root[data-platform="android"] .ai-card:has(#ai-autoframe),
+:root[data-platform="android"] [data-engine="fast"],
+:root[data-platform="android"] [data-engine="accurate"],
+:root[data-platform="android"] #split-transcript,
+:root[data-platform="android"] #split-sidebar,
+:root[data-platform="android"] .tl-resize { display: none !important; }
+:root[data-platform="android"] .toolbar { padding-left: 10px; -webkit-app-region: no-drag; }
+/* Drag on the video and the timeline with a finger, without scrolling the page. */
+:root[data-platform="android"] .canvas-ui, :root[data-platform="android"] .crop-ui,
+:root[data-platform="android"] .tl-item, :root[data-platform="android"] .tl-scrub { touch-action: none; }
+
+@media (max-width: 900px) {
+  :root[data-platform="android"] { --rail-h: 58px; }
+  :root[data-platform="android"] body { overflow: hidden; }
+
+  /* Top bar: only what's needed. */
+  :root[data-platform="android"] .toolbar { height: 50px; gap: 4px; overflow-x: auto; }
+  :root[data-platform="android"] .toolbar .brand-by,
+  :root[data-platform="android"] #save-status,
+  :root[data-platform="android"] #btn-toggle-transcript,
+  :root[data-platform="android"] #btn-toggle-sidebar,
+  :root[data-platform="android"] #btn-open-project { display: none; }
+  :root[data-platform="android"] .toolbar .btn { height: 34px; }
+  :root[data-platform="android"] .toolbar .btn.icon { width: 34px; }
+
+  /* Video on top, transcript under it. */
+  :root[data-platform="android"] .workspace { flex-direction: column; padding-bottom: var(--rail-h); }
+  :root[data-platform="android"] .preview-pane { order: 1; flex: 0 0 34vh; min-width: 0; padding: 8px 10px; gap: 6px; }
+  :root[data-platform="android"] .stats { display: none; }
+  :root[data-platform="android"] .transcript-pane { order: 2; flex: 1 1 auto; min-width: 0; min-height: 0; border-right: 0; border-top: 1px solid var(--line); }
+  :root[data-platform="android"] body.hide-transcript .transcript-pane { display: flex !important; }
+  :root[data-platform="android"] .transcript-wrap { padding: 14px 16px 40px; }
+  :root[data-platform="android"] .doc-title { font-size: 20px; }
+  :root[data-platform="android"] .transcript { font-size: var(--transcript-size, 17px); line-height: 1.85; }
+  :root[data-platform="android"] .transcript p { padding-left: 10px; }
+  :root[data-platform="android"] .head-tools { overflow-x: auto; flex-wrap: nowrap; }
+
+  /* Timeline: shown with the timeline button in the top bar, above the bottom bar. */
+  :root[data-platform="android"] .timeline-panel { position: fixed; left: 0; right: 0; bottom: var(--rail-h); height: 38vh; z-index: 12; min-height: 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35); }
+  :root[data-platform="android"] .tl-heads { width: 76px; }
+  :root[data-platform="android"] .tl-head-btn { display: none; }
+  :root[data-platform="android"] .tl-head-btn.add { display: inline; }
+
+  /* Side panels become a sheet that slides up over the transcript. */
+  :root[data-platform="android"] .sidebar { position: fixed; left: 0; right: 0; bottom: var(--rail-h); width: auto; height: 62vh; z-index: 14; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.45); }
+  :root[data-platform="android"] .sidebar::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--line); }
+
+  /* Panel buttons along the bottom, like a phone app's tab bar. */
+  :root[data-platform="android"] .rail { position: fixed; left: 0; right: 0; bottom: 0; height: var(--rail-h); width: auto; flex-direction: row; justify-content: space-around; padding: 4px 4px; border-left: 0; border-top: 1px solid var(--line); z-index: 16; }
+  :root[data-platform="android"] .rail-btn { flex: 1; padding: 4px 0; font-size: 10px; }
+
+  /* Projects home and dialogs fit the screen. */
+  :root[data-platform="android"] .home { inset: 50px 0 0 0; }
+  :root[data-platform="android"] .home-inner { padding: 18px 14px 80px; }
+  :root[data-platform="android"] .home-head { flex-wrap: wrap; }
+  :root[data-platform="android"] .home-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  :root[data-platform="android"] .home-credit { bottom: 8px; }
+  :root[data-platform="android"] .dialog { width: calc(100vw - 24px) !important; max-height: 86vh; overflow-y: auto; padding: 16px; }
+  :root[data-platform="android"] .engine-list, :root[data-platform="android"] .export-presets { grid-template-columns: 1fr 1fr; }
+  :root[data-platform="android"] .set-workspaces { grid-template-columns: 1fr 1fr; }
+  :root[data-platform="android"] .set-row { grid-template-columns: 1fr; }
+  :root[data-platform="android"] .toast { left: 12px; right: 12px; bottom: calc(var(--rail-h) + 12px); transform: none; max-width: none; }
+  :root[data-platform="android"] .crop-bar { max-width: calc(100vw - 16px); }
+}
+
+/* The projects screen is full-screen on a phone: no panel sheet or bottom bar over it. */
+@media (max-width: 900px) {
+  :root[data-platform="android"] body:has(#home:not([hidden])) .sidebar,
+  :root[data-platform="android"] body:has(#home:not([hidden])) .rail,
+  :root[data-platform="android"] body:has(#home:not([hidden])) .timeline-panel { display: none; }
+}

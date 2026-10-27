@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Talkcut by Raghav</string>
+    <string name="title_activity_main">Talkcut by Raghav</string>
+    <string name="package_name">com.raghav.talkcut</string>
+    <string name="custom_url_scheme">com.raghav.talkcut</string>
+</resources>
