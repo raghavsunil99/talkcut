@@ -83,7 +83,7 @@ function whisperCliPath() {
     path.join(__dirname, '..', 'vendor', 'whisper.cpp', 'build', 'bin', 'whisper-cli'),
   ].filter(Boolean);
   const found = candidates.find((p) => fs.existsSync(p));
-  if (!found) throw new Error('The whisper.cpp engine is not built yet. Run `npm run build:whisper` in the Cutline folder, then try again.');
+  if (!found) throw new Error('The whisper.cpp engine is not built yet. Run `npm run build:whisper` in the Talkcut folder, then try again.');
   return found;
 }
 

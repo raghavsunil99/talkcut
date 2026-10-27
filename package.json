@@ -1,7 +1,7 @@
 {
   "name": "cutline",
   "version": "1.0.0",
-  "description": "Cutline by Raghav: edit audio and video by editing the transcript.",
+  "description": "Talkcut by Raghav: edit audio and video by editing the transcript.",
   "main": "src/main.js",
   "private": true,
   "scripts": {
@@ -9,7 +9,8 @@
     "test": "node --test test/edits.test.js test/frame.test.js test/tracks.test.js test/captions.test.js test/text.test.js test/speakers.test.js test/stock.test.js test/cloud.test.js test/keystore.test.js test/projects.test.js test/media.test.js test/transcribe.test.js",
     "build:whisper": "sh scripts/build-whisper.sh",
     "build:facedetect": "sh scripts/build-facedetect.sh",
-    "dist:win": "ELECTRON_BUILDER_NSIS_DIR=${ELECTRON_BUILDER_NSIS_DIR:-$HOME/Library/Caches/cutline-nsis-3.13} electron-builder --win nsis --x64"
+    "dist:win": "ELECTRON_BUILDER_NSIS_DIR=${ELECTRON_BUILDER_NSIS_DIR:-$HOME/Library/Caches/cutline-nsis-3.13} electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --arm64"
   },
   "dependencies": {
     "ffmpeg-static": "^5.3.0"
@@ -27,8 +28,8 @@
     "email": "raghav.sunil99@gmail.com"
   },
   "build": {
-    "appId": "com.raghav.cutline",
-    "productName": "Cutline by Raghav",
+    "appId": "com.raghav.talkcut",
+    "productName": "Talkcut by Raghav",
     "copyright": "Built by Raghav",
     "directories": {
       "output": "dist",
@@ -70,7 +71,7 @@
           "to": "licenses/ffmpeg.LICENSE"
         }
       ],
-      "artifactName": "Cutline-by-Raghav-Setup-${version}.exe",
+      "artifactName": "Talkcut-by-Raghav-Setup-${version}.exe",
       "signAndEditExecutable": false
     },
     "nsis": {
@@ -79,7 +80,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Cutline by Raghav",
+      "shortcutName": "Talkcut by Raghav",
       "include": "build/installer.nsh",
       "runAfterFinish": true,
       "warningsAsErrors": false,
@@ -87,8 +88,55 @@
         "en_US"
       ],
       "multiLanguageInstaller": false,
-      "uninstallDisplayName": "Cutline by Raghav"
+      "uninstallDisplayName": "Talkcut by Raghav"
     },
-    "afterPack": "build/afterPack.js"
+    "afterPack": "build/afterPack.js",
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.video",
+      "identity": null,
+      "hardenedRuntime": false,
+      "extraResources": [
+        {
+          "from": "node_modules/ffmpeg-static/ffmpeg",
+          "to": "bin/ffmpeg"
+        },
+        {
+          "from": "vendor/whisper.cpp/build/bin/whisper-cli",
+          "to": "whisper/whisper-cli"
+        },
+        {
+          "from": "vendor/facedetect/facedetect",
+          "to": "facedetect"
+        }
+      ],
+      "artifactName": "Talkcut-by-Raghav-${version}-mac-arm64.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Talkcut does not record audio."
+      }
+    },
+    "dmg": {
+      "title": "Talkcut by Raghav",
+      "contents": [
+        {
+          "x": 150,
+          "y": 200
+        },
+        {
+          "x": 450,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }

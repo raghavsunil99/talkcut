@@ -147,11 +147,14 @@ async function extractFrames(filePath, duration, outDir, { maxFrames = 400, heig
 // Faces across the video for auto-framing: `samples` evenly spaced frames go through the
 // Vision face finder (vendor/facedetect). Returns [{ t, faces: [{ x, y, w, h }] }] with boxes
 // as fractions of the displayed picture.
-const FACEDETECT = path.join(__dirname, '..', 'vendor', 'facedetect', 'facedetect').replace('app.asar', 'app.asar.unpacked');
+const FACEDETECT = [
+  process.resourcesPath && path.join(process.resourcesPath, 'facedetect'), // installed app
+  path.join(__dirname, '..', 'vendor', 'facedetect', 'facedetect'),
+].find((p) => p && fs.existsSync(p)) ?? path.join(__dirname, '..', 'vendor', 'facedetect', 'facedetect');
 
 async function findFaces(filePath, duration, workDir, { samples = 16 } = {}) {
   try { await fsp.access(FACEDETECT); } catch {
-    throw new Error('Auto-framing needs the face finder. Build it once with scripts/build-facedetect.sh.');
+    throw new Error('Auto-framing is not available in this copy of Talkcut (it needs a Mac).');
   }
   const interval = Math.max(0.2, duration / samples);
   await runFfmpeg([

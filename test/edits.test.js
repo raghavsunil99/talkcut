@@ -179,3 +179,12 @@ test('find and replace corrects every occurrence and keeps timing and punctuatio
   assert.equal(multi.words[0].text, 'Veo');
   assert.deepEqual(E.applyWordList(words, [['vivo', 'Veo']]).map((w) => w.text)[5], 'Veo');
 });
+
+test('Indian-script words keep their vowel signs when compared', () => {
+  // Telugu కార్డు (card) and కర్డు differ only in a vowel sign; Tamil கார்டு and கர்டு too.
+  assert.notEqual(E.normalize('కార్డు'), E.normalize('కర్డు'));
+  assert.notEqual(E.normalize('கார்டு'), E.normalize('கர்டு'));
+  assert.equal(E.normalize('മലയാളം,'), 'മലയാളം');
+  const words = [{ text: 'കാർഡ്', start: 0, end: 0.4 }, { text: 'കർഡ്', start: 0.5, end: 0.9 }];
+  assert.deepEqual(E.findPhrase(words, new Set(), 'കാർഡ്'), [[0, 0]]);
+});

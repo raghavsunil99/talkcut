@@ -2,6 +2,11 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const { pathToFileURL } = require('node:url');
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, safeStorage } = require('electron');
+
+// The installed app keeps its settings, keys and speech models in a "Talkcut" folder
+// (development copies keep using "cutline").
+if (app.isPackaged && !process.env.CUTLINE_USER_DATA) app.setPath('userData', path.join(app.getPath('appData'), 'Talkcut'));
+if (process.env.CUTLINE_USER_DATA) app.setPath('userData', process.env.CUTLINE_USER_DATA);
 const os = require('node:os');
 const { probe, renderEdit, computePeaks, extractFrames, thumbnail, prepareFontsDir, enhanceAudio, STUDIO_SOUND, findFaces } = require('./media');
 const crypto = require('node:crypto');
@@ -19,8 +24,15 @@ const MEDIA_EXTENSIONS = ['mp4', 'mov', 'm4v', 'mkv', 'webm', 'mp3', 'wav', 'm4a
 const BROLL_VIDEO = ['mp4', 'mov', 'm4v', 'webm', 'mkv'];
 const BROLL_IMAGE = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const AUDIO_FILES = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'aiff'];
-const PROJECT_EXTENSION = 'cutline';
+const PROJECT_EXTENSION = 'talkcut';
 const RENDERER_URL = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).toString();
+
+// Speech models are large (0.5–1 GB each): reuse ones a development copy already downloaded.
+function modelDir() {
+  const own = path.join(app.getPath('userData'), 'models');
+  const dev = path.join(app.getPath('appData'), 'cutline', 'models');
+  return !require('node:fs').existsSync(path.join(own, 'ggml')) && require('node:fs').existsSync(path.join(dev, 'ggml')) ? dev : own;
+}
 
 let mainWindow = null;
 
@@ -30,7 +42,7 @@ function createWindow() {
     height: 940,
     minWidth: 1180,
     minHeight: 680,
-    title: 'Cutline — built by Raghav',
+    title: 'Talkcut — built by Raghav',
     backgroundColor: '#16171a',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     // Windows: keep the menu out of the way (Alt shows it).
@@ -173,7 +185,7 @@ handle('media:transcribe', async (_event, { filePath, language, quality }) => {
   return transcribe(filePath, {
     language,
     quality,
-    modelDir: path.join(app.getPath('userData'), 'models'),
+    modelDir: modelDir(),
     onProgress: (p) => send('transcribe:progress', p),
   });
 });
@@ -481,7 +493,7 @@ handle('captions:save', async (_event, { media, content, format }) => {
 
 const projects = createProjects({
   // Automated checks keep their projects out of the user's folder.
-  dir: (process.env.CUTLINE_TEST && process.env.CUTLINE_PROJECTS_DIR) || path.join(app.getPath('documents'), 'Cutline Projects'),
+  dir: (process.env.CUTLINE_TEST && process.env.CUTLINE_PROJECTS_DIR) || path.join(app.getPath('documents'), 'Talkcut Projects'),
   readSettings,
   writeSettings,
 });
@@ -537,7 +549,7 @@ handle('project:save', async (_event, { project, filePath, saveAs, quiet }) => {
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Save project',
       defaultPath: await projects.uniquePath(base),
-      filters: [{ name: 'Cutline project', extensions: [projects.EXTENSION] }],
+      filters: [{ name: 'Talkcut project', extensions: [projects.EXTENSION] }],
     });
     if (result.canceled || !result.filePath) return null;
     target = result.filePath;
@@ -583,7 +595,7 @@ handle('project:open', async (_event, { filePath } = {}) => {
       title: 'Open project',
       defaultPath: projects.dir,
       properties: ['openFile'],
-      filters: [{ name: 'Cutline project', extensions: [projects.EXTENSION] }],
+      filters: [{ name: 'Talkcut project', extensions: [projects.EXTENSION, ...projects.OLD_EXTENSIONS] }],
     });
     if (canceled || !filePaths[0]) return null;
     target = filePaths[0];

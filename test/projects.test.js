@@ -23,9 +23,9 @@ test('uniquePath numbers names that are taken, and names are made file-safe', as
   try {
     await projects.ensureDir();
     const a = await projects.uniquePath('My: Reel');
-    assert.equal(path.basename(a), 'My Reel.cutline');
+    assert.equal(path.basename(a), 'My Reel.talkcut');
     await projects.save(a, sample);
-    assert.equal(path.basename(await projects.uniquePath('My: Reel')), 'My Reel 2.cutline');
+    assert.equal(path.basename(await projects.uniquePath('My: Reel')), 'My Reel 2.talkcut');
     assert.equal(safeName('  '), 'Untitled');
   } finally { cleanup(); }
 });
@@ -40,7 +40,7 @@ test('save writes atomically and load validates', async () => {
     assert.equal(back.version, 2);
     assert.equal(back.media.path, '/videos/clip.mov');
     fs.writeFileSync(path.join(root, 'bad.cutline'), '{nope');
-    await assert.rejects(projects.load(path.join(root, 'bad.cutline')), /not a Cutline project/);
+    await assert.rejects(projects.load(path.join(root, 'bad.cutline')), /not a Talkcut project/);
     fs.writeFileSync(path.join(root, 'empty.cutline'), '{}');
     await assert.rejects(projects.load(path.join(root, 'empty.cutline')), /not a valid/);
   } finally { cleanup(); }
@@ -59,13 +59,13 @@ test('recent list: newest first, drops missing files, follows rename and duplica
     assert.equal((await projects.recent())[1].duration, 12);
 
     const renamed = await projects.rename(a, 'Final cut');
-    assert.equal(path.basename(renamed), 'Final cut.cutline');
+    assert.equal(path.basename(renamed), 'Final cut.talkcut');
     assert.ok(fs.existsSync(renamed) && !fs.existsSync(a));
     assert.deepEqual((await projects.recent()).map((r) => r.name), ['B', 'Final cut']);
     await assert.rejects(projects.rename(b, 'Final cut'), /already exists/);
 
     const copy = await projects.duplicate(renamed);
-    assert.equal(path.basename(copy), 'Final cut copy.cutline');
+    assert.equal(path.basename(copy), 'Final cut copy.talkcut');
     assert.equal((await projects.recent())[0].name, 'Final cut copy');
     assert.equal((await projects.recent())[0].duration, 12);
 

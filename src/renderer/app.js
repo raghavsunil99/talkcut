@@ -185,7 +185,7 @@
   }
 
   function projectName() {
-    return state.projectPath ? baseName(state.projectPath).replace(/\.cutline$/, '') : state.media?.name.replace(/\.[^.]+$/, '') ?? 'Cutline';
+    return state.projectPath ? baseName(state.projectPath).replace(/\.(talkcut|cutline)$/, '') : state.media?.name.replace(/\.[^.]+$/, '') ?? 'Talkcut';
   }
 
   function setSaveStatus(text, unsaved = false) {
@@ -200,7 +200,7 @@
   function setDirty(dirty) {
     state.dirty = dirty;
     cutline.setDirty(dirty, Boolean(state.projectPath));
-    document.title = `${dirty ? '• ' : ''}${state.media ? projectName() : 'Cutline'} — Cutline`;
+    document.title = `${dirty ? '• ' : ''}${state.media ? projectName() : 'Talkcut'} — Talkcut by Raghav`;
     clearTimeout(autosaveTimer);
     if (!state.media) { setSaveStatus(''); return; }
     if (!dirty) { setSaveStatus(state.projectPath ? 'Saved' : ''); return; }
@@ -1936,7 +1936,7 @@
       state.loadingMedia = false;
       renderTranscript();
       setDirty(true);
-      // Every new project gets its own file in Cutline Projects right away.
+      // Every new project gets its own file in Talkcut Projects right away.
       try {
         state.projectPath = await cutline.createProject(buildProject(), media.name.replace(/\.[^.]+$/, ''));
         els.docTitle.textContent = projectName();
@@ -2017,7 +2017,7 @@
     await autosave();
     try {
       const copy = await cutline.duplicateProject(state.projectPath);
-      toast(`Duplicated as “${baseName(copy).replace(/\.cutline$/, '')}”.`);
+      toast(`Duplicated as “${baseName(copy).replace(/\.(talkcut|cutline)$/, '')}”.`);
     } catch (err) { showError(err); }
   }
 

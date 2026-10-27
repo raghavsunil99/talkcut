@@ -78,7 +78,7 @@ One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine
    - `ffmpeg.LICENSE`
 
 `build/afterPack.js` writes the icon and version details into `Cutline.exe` (rcedit would need Wine).
-`build/HOW TO INSTALL CUTLINE.txt` is the guide for people installing it.
+`build/HOW TO INSTALL TALKCUT.txt` is the guide for people installing it.
 
 On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is hidden
 (it uses macOS Vision), and captions use Nirmala UI / Segoe UI.

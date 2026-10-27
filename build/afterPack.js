@@ -1,9 +1,20 @@
 // Windows builds made on a Mac can't run rcedit (it needs Wine), so the app's icon and
-// file details are written into Cutline.exe here, before the installer is made.
+// file details are written into the .exe here, before the installer is made.
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Mac: without an Apple developer certificate the app gets an ad-hoc signature, so Apple
+// silicon Macs accept the bundle (otherwise they call it "damaged").
+function adhocSignMac(context) {
+  const { execFileSync } = require('node:child_process');
+  const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
+  execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'inherit' });
+  execFileSync('codesign', ['--verify', '--deep', '--strict', app], { stdio: 'inherit' });
+  console.log(`  • ad-hoc signed  app=${app}`);
+}
+
 exports.default = async function afterPack(context) {
+  if (context.electronPlatformName === 'darwin') { adhocSignMac(context); return; }
   if (context.electronPlatformName !== 'win32') return;
   const { NtExecutable, NtExecutableResource, Resource, Data } = await import('resedit');
   const exePath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.exe`);
@@ -20,7 +31,7 @@ exports.default = async function afterPack(context) {
   const [a, b, c] = version.split('.').map(Number);
   const info = Resource.VersionInfo.fromEntries(res.entries)[0];
   const strings = {
-    FileDescription: 'Cutline by Raghav', ProductName: 'Cutline by Raghav', CompanyName: 'Raghav', InternalName: 'Cutline',
+    FileDescription: 'Talkcut by Raghav', ProductName: 'Talkcut by Raghav', CompanyName: 'Raghav', InternalName: 'Talkcut',
     OriginalFilename: `${context.packager.appInfo.productFilename}.exe`, LegalCopyright: 'Built by Raghav', FileVersion: version, ProductVersion: version,
   };
   for (const lang2 of info.getAllLanguagesForStringValues()) info.setStringValues(lang2, strings);
@@ -30,5 +41,5 @@ exports.default = async function afterPack(context) {
 
   res.outputResource(exe);
   fs.writeFileSync(exePath, Buffer.from(exe.generate()));
-  console.log(`  • set Cutline icon and details  file=${exePath}`);
+  console.log(`  • set Talkcut icon and details  file=${exePath}`);
 };

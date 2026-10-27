@@ -32,7 +32,8 @@ fi
   -DBUILD_SHARED_LIBS=OFF \
   -DWHISPER_BUILD_TESTS=OFF \
   -DWHISPER_BUILD_SERVER=OFF \
-  -DGGML_METAL_EMBED_LIBRARY=ON
+  -DGGML_METAL_EMBED_LIBRARY=ON \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
 "$CMAKE" --build "$SRC/build" -j "$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" --target whisper-cli
 
 echo "Built $SRC/build/bin/whisper-cli"

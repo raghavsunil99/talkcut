@@ -5,8 +5,10 @@
   const MIN_GAP = 0.3; // pauses at least this long show up as their own item
   const GAP_KEEP = 0.2; // a cut pause keeps this much silence so speech does not run together
 
+  // Lower-case, without punctuation. Keeps combining marks: in Telugu, Tamil, Malayalam and
+  // other Indian scripts the vowel signs are marks, and dropping them merges different words.
   function normalize(text) {
-    return text.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
+    return text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}']/gu, '');
   }
 
   function fillerIndices(words) {

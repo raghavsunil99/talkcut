@@ -1,10 +1,12 @@
-// Project files (.cutline JSON) and the recent-projects list shown on the home screen.
-// Projects live in ~/Documents/Cutline Projects by default; the video stays where it is and
+// Project files (.talkcut JSON; older ones are .cutline) and the recent-projects list shown
+// on the home screen. Projects live in ~/Documents/Talkcut Projects by default; the video stays where it is and
 // the project refers to it by path.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-const EXTENSION = 'cutline';
+const EXTENSION = 'talkcut';
+const OLD_EXTENSIONS = ['cutline']; // projects saved before the app was renamed still open
+const stripExt = (p) => path.basename(p).replace(/\.(talkcut|cutline)$/i, '');
 const MAX_RECENT = 40;
 
 function safeName(name) {
@@ -21,7 +23,7 @@ function createProjects({ dir, readSettings, writeSettings }) {
     return fs.access(p).then(() => true, () => false);
   }
 
-  // "Name.cutline", or "Name 2.cutline" and so on if taken.
+  // "Name.talkcut", or "Name 2.talkcut" and so on if taken.
   async function uniquePath(name, folder = dir) {
     const base = safeName(name);
     for (let n = 1; ; n++) {
@@ -44,9 +46,9 @@ function createProjects({ dir, readSettings, writeSettings }) {
     try {
       project = JSON.parse(await fs.readFile(filePath, 'utf8'));
     } catch {
-      throw new Error('This file is not a Cutline project, or it is damaged.');
+      throw new Error('This file is not a Talkcut project, or it is damaged.');
     }
-    if (!project?.media?.path || !Array.isArray(project.words)) throw new Error('This is not a valid Cutline project.');
+    if (!project?.media?.path || !Array.isArray(project.words)) throw new Error('This is not a valid Talkcut project.');
     return project;
   }
 
@@ -86,7 +88,7 @@ function createProjects({ dir, readSettings, writeSettings }) {
         ...old,
         ...Object.fromEntries(Object.entries(meta).filter(([, v]) => v != null)),
         path: filePath,
-        name: path.basename(filePath, `.${EXTENSION}`),
+        name: stripExt(filePath),
         updatedAt: Date.now(),
       };
       await writeRecent([entry, ...list.filter((r) => r.path !== filePath)]);
@@ -109,20 +111,20 @@ function createProjects({ dir, readSettings, writeSettings }) {
       if (await exists(target)) throw new Error(`A project called “${safeName(newName)}” already exists there.`);
       await fs.rename(filePath, target);
       const list = await readRecent();
-      await writeRecent(list.map((r) => (r.path === filePath ? { ...r, path: target, name: path.basename(target, `.${EXTENSION}`) } : r)));
+      await writeRecent(list.map((r) => (r.path === filePath ? { ...r, path: target, name: stripExt(target) } : r)));
       return target;
     },
 
     async duplicate(filePath) {
       const project = await load(filePath);
-      const target = await uniquePath(`${path.basename(filePath, `.${EXTENSION}`)} copy`, path.dirname(filePath));
+      const target = await uniquePath(`${stripExt(filePath)} copy`, path.dirname(filePath));
       await save(target, project);
       const list = await readRecent();
       const meta = list.find((r) => r.path === filePath) ?? {};
-      await writeRecent([{ ...meta, path: target, name: path.basename(target, `.${EXTENSION}`), updatedAt: Date.now() }, ...list]);
+      await writeRecent([{ ...meta, path: target, name: stripExt(target), updatedAt: Date.now() }, ...list]);
       return target;
     },
   };
 }
 
-module.exports = { createProjects, safeName, EXTENSION };
+module.exports = { createProjects, safeName, EXTENSION, OLD_EXTENSIONS };
