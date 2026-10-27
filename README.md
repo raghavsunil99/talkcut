@@ -1,6 +1,39 @@
-# Cutline
+# Talkcut by Raghav
 
-Edit audio and video by editing the transcript. Cutline transcribes a file on your Mac with Whisper, shows the words, and lets you cut words or pauses to cut them from the recording. Export renders only what you kept.
+**Edit talking-head videos by editing their transcript.** Talkcut writes down what you said; delete words in the text and they're cut from the video. Made for Telugu, Tamil, Malayalam, Kannada, Hindi and English creators, including everyday mixed speech like Telugu with English words.
+
+[![Download](https://img.shields.io/github/v/release/raghavsunil99/talkcut?label=download&color=7c8cff)](https://github.com/raghavsunil99/talkcut/releases/latest)
+![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=fff)
+![macOS](https://img.shields.io/badge/macOS-13%2B%20Apple%20silicon-000?logo=apple&logoColor=fff)
+![Android](https://img.shields.io/badge/Android-6%2B-3DDC84?logo=android&logoColor=fff)
+
+## Download
+
+| Device | Get it |
+|---|---|
+| Windows 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.0.exe](https://github.com/raghavsunil99/talkcut/releases/latest) |
+| Mac with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.0-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) |
+| Android phone or tablet | [Talkcut-by-Raghav-1.0.0.apk](https://github.com/raghavsunil99/talkcut/releases/latest) |
+
+Install steps for each device are in [HOW TO INSTALL TALKCUT.txt](build/HOW%20TO%20INSTALL%20TALKCUT.txt).
+
+## What it does
+
+- **Edit by text:** cut words and pauses from the transcript; correct spellings for captions; find & replace with a word list for names and brands
+- **AI tools:** remove retakes, filler words and long pauses; Studio Sound voice cleanup; auto-frame for 9:16 (Mac); speaker labels
+- **Captions:** six styles, word-by-word highlight, drag and resize them on the video, a captions row on the timeline, SRT/VTT files
+- **Timeline:** B-roll, photos, text and titles on overlay tracks, music that turns down while you speak, blade, range and slip tools
+- **Frame:** 9:16, 1:1, 4:5, 16:9 and custom sizes, blurred background, crop on the video, rotate and flip
+- **Export:** presets for Reels / Shorts, YouTube and square posts; on Android the video goes straight to the share menu
+- **Transcription:** free on your computer (Windows and Mac), or ElevenLabs with your own key for the best Telugu, Tamil and Malayalam results
+
+No API keys are bundled: each person adds their own, and they're stored only on their device.
+
+---
+
+## Build from source
+
+The rest of this page is for developers.
 
 ## Run
 
@@ -14,9 +47,9 @@ npm start
 
 You can also pass a file: `npm start -- ~/Movies/clip.mp4`.
 
-Speech models download on first use into `~/Library/Application Support/cutline/models/ggml`: `large-v3-turbo` (about 570 MB) for **Fast**, `large-v3` (about 1.1 GB) for **Accurate** and for language auto-detection. After that everything runs offline.
+Speech models download on first use into the app's data folder (`~/Library/Application Support/cutline/models/ggml` when run from source): `large-v3-turbo` (about 570 MB) for **Fast**, `large-v3` (about 1.1 GB) for **Accurate** and for language auto-detection. After that everything runs offline.
 
-## Use
+## Features in detail
 
 - **Language** (toolbar): *Auto-detect* listens to a few parts of the recording and picks the language; speech that mixes a language with English (Telugu and English, for example) is written in that language's script with English words kept in English. You can also pick the language yourself.
 - **Quality**: *Fast* suits most recordings. *Accurate* is noticeably better for Indian languages but slower. *Cloud · ElevenLabs* sends the audio to ElevenLabs Scribe instead: on a Telugu–English test clip it had 3% word errors against Descript's transcript, versus about 70% for Accurate. It uses your ElevenLabs credit and needs an ElevenLabs API key.
@@ -30,10 +63,10 @@ Speech models download on first use into `~/Library/Application Support/cutline/
 - **Media** (right sidebar): *My media* adds your own videos or photos; *Stock* searches free Pexels videos and photos (needs a free API key from [pexels.com/api](https://www.pexels.com/api/), stored encrypted in the macOS keychain). Clicking an item lays it over the picture at the playhead as B-roll while the voice keeps playing. On the B-roll track, drag a block to move it, drag its right edge to change its length, or select it and press ⌫ to remove it.
 - **Properties** (right sidebar): speed and duration (type a length to fit the speed to it), audio volume up to 200% and mute, frame shape (Original, 9:16, 1:1, 4:5, 16:9) and background colour, scale, X/Y position, 90° rotation, and crop on each side. The preview shows exactly what the export will be; ⌘Z undoes changes.
 - **Timeline tools** (tool menu next to zoom, or the keys): **Select** (A) words, pauses, B-roll and blade pieces; **Hand** (H) drag to scroll; **Blade** (B) click to split the clip, then select a piece and press ⌫; **Range** (R) drag across any stretch, even mid-word, and press ⌫; **Slip** (Y) drag a B-roll video to change which part of it plays.
-- **API keys**: + Add API key (choose ElevenLabs or Pexels), name, note, on/off switch per key. If the ElevenLabs key in use runs out of credits, Cutline asks before switching to the next enabled key and trying again.
+- **API keys**: + Add API key (choose ElevenLabs or Pexels), name, note, on/off switch per key. If the ElevenLabs key in use runs out of credits, Talkcut asks before switching to the next enabled key and trying again.
 - **Playback**: «/» jump 5 s, speed from 0.75x to 2x, and the bar above the timeline scrubs through the whole edit.
 - **Undo / Redo**: ⌘Z / ⇧⌘Z.
-- **Save** (⌘S) writes a `.cutline` project file (transcript, language and cuts) next to the media. **Open project** reopens it without transcribing again.
+- **Save** (⌘S) writes a `.talkcut` project file (transcript, language, cuts and tracks) to Documents › Talkcut Projects. **Open project** reopens it without transcribing again.
 - **Export** (⌘E) renders an MP4 (video) or M4A/WAV/MP3 (audio). Your original file is never changed.
 
 ## Test
@@ -61,9 +94,13 @@ npm test
 - Telugu accuracy is far from perfect: spellings are often approximate and an occasional phrase is dropped. Whisper's Telugu is much weaker than its English; a cloud speech service would do better if that matters more than keeping everything on this Mac.
 - Whisper tends to leave out "um" and "uh", so filler removal only catches the ones it writes down.
 
+## Mac app
+
+`npm run dist:mac` builds `dist/Talkcut-by-Raghav-<version>-mac-arm64.dmg` (Apple silicon, macOS 13+), ad-hoc signed by `build/afterPack.js`, with ffmpeg, whisper-cli and the face finder bundled.
+
 ## Windows installer
 
-`npm run dist:win` builds `dist/Cutline-Setup-<version>.exe` (64-bit, NSIS) on a Mac.
+`npm run dist:win` builds `dist/Talkcut-by-Raghav-Setup-<version>.exe` (64-bit, NSIS) on a Mac.
 
 One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine are Intel-only):
 
@@ -77,7 +114,7 @@ One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine
    - `vc_redist.x64.exe` — Microsoft Visual C++ runtime (the installer runs it if missing)
    - `ffmpeg.LICENSE`
 
-`build/afterPack.js` writes the icon and version details into `Cutline.exe` (rcedit would need Wine).
+`build/afterPack.js` writes the icon and version details into the Windows .exe (rcedit would need Wine).
 `build/HOW TO INSTALL TALKCUT.txt` is the guide for people installing it.
 
 On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is hidden
