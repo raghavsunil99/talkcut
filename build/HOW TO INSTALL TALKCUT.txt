@@ -16,7 +16,7 @@ plus about 2 GB of free space, and internet for transcription.
 
 1A. INSTALL ON WINDOWS
 ----------------------
-1. Double-click  Talkcut-by-Raghav-Setup-1.0.0.exe
+1. Double-click  Talkcut-by-Raghav-Setup-1.0.1.exe
 2. Windows may show a blue box saying "Windows protected your PC".
    This appears because the app is new and not signed by a company. It is safe.
    Click  "More info"  and then  "Run anyway".
@@ -28,7 +28,7 @@ plus about 2 GB of free space, and internet for transcription.
 
 1B. INSTALL ON A MAC
 --------------------
-1. Double-click  Talkcut-by-Raghav-1.0.0-mac-arm64.dmg
+1. Double-click  Talkcut-by-Raghav-1.0.1-mac-arm64.dmg
 2. Drag  Talkcut by Raghav  onto the  Applications  folder in the window that opens.
 3. Open Applications and double-click Talkcut by Raghav. The Mac will say it can't check
    the app (it is not from the App Store). Click  Done  (or Cancel), then:
@@ -39,7 +39,7 @@ plus about 2 GB of free space, and internet for transcription.
 
 1C. INSTALL ON ANDROID
 ----------------------
-1. Copy  Talkcut-by-Raghav-1.0.0.apk  to the phone (WhatsApp it to yourself, Google Drive,
+1. Copy  Talkcut-by-Raghav-1.0.1.apk  to the phone (WhatsApp it to yourself, Google Drive,
    or a USB cable) and tap it.
 2. Android asks whether to allow installing apps from that source (Chrome, Files, WhatsApp…).
    Tap  Settings  → turn on  "Allow from this source"  → go back → Install.
