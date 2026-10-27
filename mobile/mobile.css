@@ -84,3 +84,15 @@
   :root[data-platform="android"] body:has(#home:not([hidden])) .rail,
   :root[data-platform="android"] body:has(#home:not([hidden])) .timeline-panel { display: none; }
 }
+
+/* Timeline controls on a phone: one tidy row (time, play, zoom); no tool menu or status text. */
+@media (max-width: 900px) {
+  :root[data-platform="android"] .tl-bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; overflow: hidden; }
+  :root[data-platform="android"] .tl-bar .time { font-size: 13px; flex-shrink: 0; }
+  :root[data-platform="android"] .tl-status,
+  :root[data-platform="android"] .tool-picker,
+  :root[data-platform="android"] .tl-zoom-label,
+  :root[data-platform="android"] #speed { display: none !important; }
+  :root[data-platform="android"] .tl-transport { margin: 0 auto; }
+  :root[data-platform="android"] .tl-zoom { flex-shrink: 0; }
+}

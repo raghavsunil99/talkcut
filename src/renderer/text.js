@@ -15,7 +15,7 @@
       color: '#FFFFFF', accent: '#7C8CFF', bg: 'rgba(20,20,28,0.78)', weight: 700, align: 'left', upper: false, shadow: false,
     },
     callout: {
-      label: 'Callout', text: 'Important!', box: { x: 0.25, y: 0.12, w: 0.5, h: 0.07 },
+      label: 'Callout', text: 'Important!', box: { x: 0.1, y: 0.12, w: 0.8, h: 0.07 },
       color: '#111111', accent: '#FFD84D', bg: '#FFD84D', weight: 800, align: 'center', upper: true, shadow: false,
     },
     bar: {

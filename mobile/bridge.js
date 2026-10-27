@@ -141,9 +141,16 @@
 
   // Seek and wait until that frame can be drawn (Android's WebView reports "seeked" before the
   // picture is decoded, which gave black thumbnails).
+  // Android only loads a video's frames when it is on the page, so it is attached (invisibly)
+  // while frames are read, and every wait has a time limit.
+  const within = (ms, promise) => Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
   async function seek(el, t) {
-    if (el.readyState < 2) await new Promise((resolve) => el.addEventListener('loadeddata', resolve, { once: true }));
-    await new Promise((resolve) => { el.onseeked = resolve; el.currentTime = t; });
+    if (!el.isConnected) {
+      el.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+      document.body.appendChild(el);
+    }
+    if (el.readyState < 2) await within(4000, new Promise((resolve) => el.addEventListener('loadeddata', resolve, { once: true })));
+    await within(3000, new Promise((resolve) => { el.onseeked = resolve; el.currentTime = t; }));
     if (el.requestVideoFrameCallback) {
       await Promise.race([new Promise((resolve) => el.requestVideoFrameCallback(() => resolve())), new Promise((resolve) => setTimeout(resolve, 300))]);
     }
@@ -160,6 +167,7 @@
       canvas.getContext('2d').drawImage(info.el, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/jpeg', 0.75);
     } finally {
+      info.el.remove?.();
       URL.revokeObjectURL(info.url);
     }
   }
@@ -224,6 +232,7 @@
           frames.push({ t, src: canvas.toDataURL('image/jpeg', 0.7) });
         }
       } finally {
+        info.el.remove?.();
         URL.revokeObjectURL(info.url);
       }
     }

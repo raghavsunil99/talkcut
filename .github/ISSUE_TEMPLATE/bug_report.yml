@@ -1,0 +1,28 @@
+name: Bug report
+description: Something in Talkcut doesn't work as expected
+labels: [bug]
+body:
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options: [Windows, Mac, Android]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Screenshots help.
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language of the video
+      options: [Telugu, Tamil, Malayalam, Kannada, Hindi, English, Mixed, Other]
+  - type: input
+    id: version
+    attributes:
+      label: Talkcut version
+      placeholder: "1.0.0"

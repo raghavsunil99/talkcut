@@ -1,33 +1,119 @@
-# Talkcut by Raghav
+<p align="center">
+  <img src="docs/images/banner.png" alt="Talkcut by Raghav: edit talking-head videos by editing the transcript" width="100%">
+</p>
 
-**Edit talking-head videos by editing their transcript.** Talkcut writes down what you said; delete words in the text and they're cut from the video. Made for Telugu, Tamil, Malayalam, Kannada, Hindi and English creators, including everyday mixed speech like Telugu with English words.
+<p align="center">
+  <a href="https://github.com/raghavsunil99/talkcut/releases/latest"><img src="https://img.shields.io/github/v/release/raghavsunil99/talkcut?label=download&color=7c8cff&style=for-the-badge" alt="Download"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=fff&style=for-the-badge" alt="Windows">
+  <img src="https://img.shields.io/badge/macOS-13%2B-000?logo=apple&logoColor=fff&style=for-the-badge" alt="macOS">
+  <img src="https://img.shields.io/badge/Android-6%2B-3DDC84?logo=android&logoColor=fff&style=for-the-badge" alt="Android">
+</p>
 
-[![Download](https://img.shields.io/github/v/release/raghavsunil99/talkcut?label=download&color=7c8cff)](https://github.com/raghavsunil99/talkcut/releases/latest)
-![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows&logoColor=fff)
-![macOS](https://img.shields.io/badge/macOS-13%2B%20Apple%20silicon-000?logo=apple&logoColor=fff)
-![Android](https://img.shields.io/badge/Android-6%2B-3DDC84?logo=android&logoColor=fff)
+<p align="center">
+  <b>Talkcut writes down what you said. Delete words in the text, and they're cut from the video.</b><br>
+  Made for Telugu, Tamil, Malayalam, Kannada, Hindi and English creators, including everyday mixed speech like Telugu with English words.
+</p>
 
-## Download
+<p align="center">
+  <a href="#-download">Download</a> ·
+  <a href="#-features">Features</a> ·
+  <a href="#-on-android">Android</a> ·
+  <a href="#-languages">Languages</a> ·
+  <a href="#build-from-source">Build from source</a>
+</p>
 
-| Device | Get it |
-|---|---|
-| Windows 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.0.exe](https://github.com/raghavsunil99/talkcut/releases/latest) |
-| Mac with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.0-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) |
-| Android phone or tablet | [Talkcut-by-Raghav-1.0.0.apk](https://github.com/raghavsunil99/talkcut/releases/latest) |
+<p align="center">
+  <img src="docs/images/editor.png" alt="The Talkcut editor: transcript, preview with captions and a title, caption styles, and a multi-track timeline" width="100%">
+</p>
 
-Install steps for each device are in [HOW TO INSTALL TALKCUT.txt](build/HOW%20TO%20INSTALL%20TALKCUT.txt).
+## ⬇ Download
 
-## What it does
+| Device | File | Notes |
+|---|---|---|
+| 🪟 **Windows** 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.0.exe](https://github.com/raghavsunil99/talkcut/releases/latest) | If "Windows protected your PC" appears, click **More info → Run anyway** |
+| 🍎 **Mac** with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.0-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) | Drag to Applications, then **System Settings → Privacy & Security → Open Anyway** once |
+| 🤖 **Android** 6+ phone or tablet | [Talkcut-by-Raghav-1.0.0.apk](https://github.com/raghavsunil99/talkcut/releases/latest) | Allow installing from your browser or Files app, then **Install anyway** |
 
-- **Edit by text:** cut words and pauses from the transcript; correct spellings for captions; find & replace with a word list for names and brands
-- **AI tools:** remove retakes, filler words and long pauses; Studio Sound voice cleanup; auto-frame for 9:16 (Mac); speaker labels
-- **Captions:** six styles, word-by-word highlight, drag and resize them on the video, a captions row on the timeline, SRT/VTT files
-- **Timeline:** B-roll, photos, text and titles on overlay tracks, music that turns down while you speak, blade, range and slip tools
-- **Frame:** 9:16, 1:1, 4:5, 16:9 and custom sizes, blurred background, crop on the video, rotate and flip
-- **Export:** presets for Reels / Shorts, YouTube and square posts; on Android the video goes straight to the share menu
-- **Transcription:** free on your computer (Windows and Mac), or ElevenLabs with your own key for the best Telugu, Tamil and Malayalam results
+Step-by-step instructions: [HOW TO INSTALL TALKCUT.txt](build/HOW%20TO%20INSTALL%20TALKCUT.txt)
 
-No API keys are bundled: each person adds their own, and they're stored only on their device.
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### ✂️ Edit like a document
+Cut words, pauses and whole sentences from the transcript. Fix spellings for the captions without touching the video, and find & replace mistakes everywhere at once, with a word list for names and brands.
+
+</td>
+<td width="50%" valign="top">
+
+### ✦ AI tools
+**Remove retakes** (keeps your last take), **remove filler words**, **shorten pauses**, **Studio Sound** voice cleanup, **auto-frame** your face for 9:16, and **speaker labels**.
+
+</td>
+</tr>
+<tr>
+<td><img src="docs/images/ai-tools.png" alt="AI tools panel"></td>
+<td><img src="docs/images/captions-drag.png" alt="Dragging captions on the video"></td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 💬 Captions that pop
+Six styles with a word-by-word highlight. Drag and resize them right on the video, see them as a row on the timeline, and export SRT/VTT files for YouTube.
+
+</td>
+<td width="50%" valign="top">
+
+### 🎞 A real timeline
+B-roll, photos, titles and text on overlay tracks; music that turns down while you speak; blade, range and slip tools; undo for everything.
+
+</td>
+</tr>
+<tr>
+<td><img src="docs/images/crop.png" alt="Cropping on the video with shape presets"></td>
+<td><img src="docs/images/export.png" alt="Export presets for Reels, YouTube and more"></td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 📐 Any frame
+9:16, 1:1, 4:5, 16:9, 4:3 or a custom size; blurred background instead of black bars; crop on the video with shape presets; rotate and flip.
+
+</td>
+<td width="50%" valign="top">
+
+### 🚀 Ready to post
+Export presets for Reels / Shorts, YouTube and square posts, with captions burned in. Projects save automatically.
+
+</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/images/editor-light.png" alt="Light theme" width="80%"><br>
+  <sub>Dark, Midnight and Light themes, accent colours, and four workspace layouts.</sub>
+</p>
+
+## 📱 On Android
+
+The same editor, laid out for a phone. Export makes the video on the phone and opens the share menu, so it can go straight to Instagram, WhatsApp or Photos.
+
+<p align="center">
+  <img src="docs/images/android.png" alt="Talkcut on an Android phone: editing by text, caption styles, and the timeline" width="100%">
+</p>
+
+## 🗣 Languages
+
+Telugu · Tamil · Malayalam · Kannada · Hindi · Marathi · Bengali · English · Spanish · French · German
+
+| | Windows & Mac | Android |
+|---|---|---|
+| **Free, on your device** | ✅ Fast and Accurate engines (whisper.cpp) | — |
+| **ElevenLabs** (your own key) | ✅ Best for Telugu, Tamil and Malayalam; tells speakers apart | ✅ |
+
+No API keys are bundled. Each person adds their own, and they're stored only on their device.
 
 ---
 

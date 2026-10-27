@@ -1,0 +1,14 @@
+name: Feature request
+description: An idea that would make editing faster or better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Talkcut to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would it help your videos?
