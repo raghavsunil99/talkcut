@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+# third-party build outputs (rebuilt by npm run build:whisper / build:facedetect)
+vendor/whisper.cpp/
+vendor/cmake-venv/
+vendor/facedetect/facedetect

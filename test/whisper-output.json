@@ -1,0 +1,228 @@
+{
+ "transcription": [
+  {
+   "timestamps": {
+    "from": "00:00:00,000",
+    "to": "00:00:00,000"
+   },
+   "offsets": {
+    "from": 0,
+    "to": 0
+   },
+   "text": "",
+   "tokens": [
+    {
+     "text": "[_BEG_]",
+     "t_dtw": -1
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:00,000",
+    "to": "00:00:00,950"
+   },
+   "offsets": {
+    "from": 0,
+    "to": 950
+   },
+   "text": " Let's",
+   "tokens": [
+    {
+     "text": " Let",
+     "t_dtw": 400
+    },
+    {
+     "text": "'s",
+     "t_dtw": 408
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:00,950",
+    "to": "00:00:01,710"
+   },
+   "offsets": {
+    "from": 950,
+    "to": 1710
+   },
+   "text": " rank",
+   "tokens": [
+    {
+     "text": " rank",
+     "t_dtw": 428
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:01,710",
+    "to": "00:00:02,280"
+   },
+   "offsets": {
+    "from": 1710,
+    "to": 2280
+   },
+   "text": " the",
+   "tokens": [
+    {
+     "text": " the",
+     "t_dtw": 446
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:02,280",
+    "to": "00:00:03,040"
+   },
+   "offsets": {
+    "from": 2280,
+    "to": 3040
+   },
+   "text": " best",
+   "tokens": [
+    {
+     "text": " best",
+     "t_dtw": 464
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:03,040",
+    "to": "00:00:03,830"
+   },
+   "offsets": {
+    "from": 3040,
+    "to": 3830
+   },
+   "text": " job",
+   "tokens": [
+    {
+     "text": " job",
+     "t_dtw": 490
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:03,830",
+    "to": "00:00:05,800"
+   },
+   "offsets": {
+    "from": 3830,
+    "to": 5800
+   },
+   "text": " portals.",
+   "tokens": [
+    {
+     "text": " portals",
+     "t_dtw": 538
+    },
+    {
+     "text": ".",
+     "t_dtw": 590
+    },
+    {
+     "text": "[_TT_290]",
+     "t_dtw": -1
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:05,800",
+    "to": "00:00:06,800"
+   },
+   "offsets": {
+    "from": 5800,
+    "to": 6800
+   },
+   "text": " Nochri",
+   "tokens": [
+    {
+     "text": " No",
+     "t_dtw": 592
+    },
+    {
+     "text": "ch",
+     "t_dtw": 608
+    },
+    {
+     "text": "ri",
+     "t_dtw": 616
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:06,800",
+    "to": "00:00:06,860"
+   },
+   "offsets": {
+    "from": 6800,
+    "to": 6860
+   },
+   "text": " -",
+   "tokens": [
+    {
+     "text": " -",
+     "t_dtw": 662
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:06,860",
+    "to": "00:00:07,300"
+   },
+   "offsets": {
+    "from": 6860,
+    "to": 7300
+   },
+   "text": " Average",
+   "tokens": [
+    {
+     "text": " Average",
+     "t_dtw": 698
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:07,300",
+    "to": "00:00:07,350"
+   },
+   "offsets": {
+    "from": 7300,
+    "to": 7350
+   },
+   "text": " -",
+   "tokens": [
+    {
+     "text": " -",
+     "t_dtw": 746
+    }
+   ]
+  },
+  {
+   "timestamps": {
+    "from": "00:00:07,350",
+    "to": "00:00:07,910"
+   },
+   "offsets": {
+    "from": 7350,
+    "to": 7910
+   },
+   "text": " competition",
+   "tokens": [
+    {
+     "text": " competition",
+     "t_dtw": 766
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "cutline",
+  "version": "1.0.0",
+  "description": "Edit audio and video by editing the transcript.",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/edits.test.js test/frame.test.js test/tracks.test.js test/captions.test.js test/text.test.js test/speakers.test.js test/stock.test.js test/cloud.test.js test/keystore.test.js test/projects.test.js test/media.test.js test/transcribe.test.js",
+    "build:whisper": "sh scripts/build-whisper.sh",
+    "build:facedetect": "sh scripts/build-facedetect.sh"
+  },
+  "dependencies": {
+    "electron": "^38.8.6",
+    "ffmpeg-static": "^5.3.0"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true
+  }
+}

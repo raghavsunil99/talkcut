@@ -1,0 +1,55 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+function subscribe(channel, callback) {
+  const listener = (_event, payload) => callback(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
+
+contextBridge.exposeInMainWorld('cutline', {
+  openMedia: () => ipcRenderer.invoke('media:open'),
+  openDroppedFile: (file) => ipcRenderer.invoke('media:open-path', webUtils.getPathForFile(file)),
+  openPath: (filePath) => ipcRenderer.invoke('media:open-path', filePath),
+  onOpenPath: (cb) => subscribe('media:open-path', cb),
+  options: () => ipcRenderer.invoke('media:options'),
+  transcribe: (filePath, language, quality) => ipcRenderer.invoke('media:transcribe', { filePath, language, quality }),
+  timeline: (media) => ipcRenderer.invoke('media:timeline', { filePath: media.path, duration: media.duration, hasVideo: media.hasVideo }),
+  exportMedia: (media, ranges, extras = {}) => ipcRenderer.invoke('media:export', { media, ranges, ...extras }),
+  saveCaptions: (media, content, format) => ipcRenderer.invoke('captions:save', { media, content, format }),
+  settings: () => ipcRenderer.invoke('settings:get'),
+  setPexelsKey: (key) => ipcRenderer.invoke('settings:set-pexels-key', key),
+  listKeys: () => ipcRenderer.invoke('keys:list'),
+  keyUsage: (service, id) => ipcRenderer.invoke('keys:usage', { service, id }),
+  addKey: (service, label, key, note) => ipcRenderer.invoke('keys:add', { service, label, key, note }),
+  enableKey: (service, id, enabled) => ipcRenderer.invoke('keys:enable', { service, id, enabled }),
+  setKeyNote: (service, id, note) => ipcRenderer.invoke('keys:note', { service, id, note }),
+  selectKey: (service, id) => ipcRenderer.invoke('keys:select', { service, id }),
+  renameKey: (service, id, label) => ipcRenderer.invoke('keys:rename', { service, id, label }),
+  removeKey: (service, id) => ipcRenderer.invoke('keys:remove', { service, id }),
+  openBroll: () => ipcRenderer.invoke('broll:open'),
+  describeBroll: (filePath) => ipcRenderer.invoke('broll:describe', filePath),
+  openAudio: () => ipcRenderer.invoke('audio:open'),
+  enhancedAudio: (filePath) => ipcRenderer.invoke('audio:enhanced', filePath),
+  findFaces: (filePath, duration) => ipcRenderer.invoke('media:faces', { filePath, duration }),
+  describeAudio: (filePath) => ipcRenderer.invoke('audio:describe', filePath),
+  searchStock: (query, kind, orientation) => ipcRenderer.invoke('stock:search', { query, kind, orientation }),
+  downloadStock: (item) => ipcRenderer.invoke('stock:download', item),
+  onStockProgress: (cb) => subscribe('stock:progress', cb),
+  openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+  saveProject: (project, filePath, saveAs = false, quiet = false) => ipcRenderer.invoke('project:save', { project, filePath, saveAs, quiet }),
+  openProject: (filePath) => ipcRenderer.invoke('project:open', { filePath }),
+  createProject: (project, name) => ipcRenderer.invoke('project:create', { project, name }),
+  recentProjects: () => ipcRenderer.invoke('projects:recent'),
+  projectsDir: () => ipcRenderer.invoke('projects:dir'),
+  renameProject: (filePath, name) => ipcRenderer.invoke('projects:rename', { filePath, name }),
+  duplicateProject: (filePath) => ipcRenderer.invoke('projects:duplicate', { filePath }),
+  trashProject: (filePath) => ipcRenderer.invoke('projects:trash', { filePath }),
+  revealProject: (filePath) => ipcRenderer.invoke('projects:reveal', { filePath }),
+  onOpenProjectPath: (cb) => subscribe('menu:open-project', cb),
+  setDirty: (dirty, hasFile = false) => ipcRenderer.invoke('project:set-dirty', Boolean(dirty), Boolean(hasFile)),
+  onBeforeClose: (cb) => subscribe('app:before-close', cb),
+  closeNow: () => ipcRenderer.invoke('app:close-now'),
+  onTranscribeProgress: (cb) => subscribe('transcribe:progress', cb),
+  onExportProgress: (cb) => subscribe('export:progress', cb),
+  onMenuCommand: (cb) => subscribe('menu:command', cb),
+});
