@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="Talkcut by Raghav: edit talking-head videos by editing the transcript" width="100%">
+  <img src="docs/images/hero.png" alt="Talkcut by Raghav: edit your videos by editing the text" width="100%">
 </p>
 
 <p align="center">
@@ -23,16 +23,16 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/editor.png" alt="The Talkcut editor: transcript, preview with captions and a title, caption styles, and a multi-track timeline" width="100%">
+  <img src="docs/images/editor.png" alt="The Talkcut editor: a Telugu-English transcript, the video with a title and captions, caption styles, and the timeline" width="100%">
 </p>
 
 ## ⬇ Download
 
 | Device | File | Notes |
 |---|---|---|
-| 🪟 **Windows** 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.1.exe](https://github.com/raghavsunil99/talkcut/releases/latest) | If "Windows protected your PC" appears, click **More info → Run anyway** |
-| 🍎 **Mac** with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.1-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) | Drag to Applications, then **System Settings → Privacy & Security → Open Anyway** once |
-| 🤖 **Android** 6+ phone or tablet | [Talkcut-by-Raghav-1.0.1.apk](https://github.com/raghavsunil99/talkcut/releases/latest) | Allow installing from your browser or Files app, then **Install anyway** |
+| 🪟 **Windows** 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.2.exe](https://github.com/raghavsunil99/talkcut/releases/latest) | If "Windows protected your PC" appears, click **More info → Run anyway** |
+| 🍎 **Mac** with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.2-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) | Drag to Applications, then **System Settings → Privacy & Security → Open Anyway** once |
+| 🤖 **Android** 6+ phone or tablet | [Talkcut-by-Raghav-1.0.2.apk](https://github.com/raghavsunil99/talkcut/releases/latest) | Allow installing from your browser or Files app, then **Install anyway** |
 
 Step-by-step instructions: [HOW TO INSTALL TALKCUT.txt](build/HOW%20TO%20INSTALL%20TALKCUT.txt)
 
@@ -54,8 +54,8 @@ Cut words, pauses and whole sentences from the transcript. Fix spellings for the
 </td>
 </tr>
 <tr>
-<td><img src="docs/images/ai-tools.png" alt="AI tools panel"></td>
-<td><img src="docs/images/captions-drag.png" alt="Dragging captions on the video"></td>
+<td><img src="docs/images/ai.png" alt="AI tools: remove retakes, filler words and pauses, Studio Sound, auto-frame"></td>
+<td><img src="docs/images/captions.png" alt="Selecting and dragging captions on the video"></td>
 </tr>
 <tr>
 <td width="50%" valign="top">
@@ -72,8 +72,7 @@ B-roll, photos, titles and text on overlay tracks; music that turns down while y
 </td>
 </tr>
 <tr>
-<td><img src="docs/images/crop.png" alt="Cropping on the video with shape presets"></td>
-<td><img src="docs/images/export.png" alt="Export presets for Reels, YouTube and more"></td>
+<td colspan="2"><img src="docs/images/export.png" alt="Export presets for Reels, Shorts, YouTube and square posts"></td>
 </tr>
 <tr>
 <td width="50%" valign="top">
@@ -91,10 +90,7 @@ Export presets for Reels / Shorts, YouTube and square posts, with captions burne
 </tr>
 </table>
 
-<p align="center">
-  <img src="docs/images/editor-light.png" alt="Light theme" width="80%"><br>
-  <sub>Dark, Midnight and Light themes, accent colours, and four workspace layouts.</sub>
-</p>
+<p align="center"><sub>Dark, Midnight and Light themes, six accent colours, and four workspace layouts.</sub></p>
 
 ## 📱 On Android
 

@@ -39,3 +39,9 @@ test('braces in text cannot inject ASS tags', () => {
   const line = ass.split('\n').find((l) => l.startsWith('Dialogue:'));
   assert.ok(line.endsWith('a(＼pos(0,0))b'), line);
 });
+
+test('text shrinks to fit the width of its box', () => {
+  const long = { kind: 'text', text: 'Top 5 job portals for freshers', style: { preset: 'callout' } };
+  assert.ok(X.fontPx(long, 100, 400) < X.fontPx(long, 100), 'narrow box gives smaller text');
+  assert.ok(X.fontPx({ ...long, text: 'Hi' }, 100, 400) === X.fontPx({ ...long, text: 'Hi' }, 100), 'short text keeps the height-based size');
+});

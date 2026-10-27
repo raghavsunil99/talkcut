@@ -1,6 +1,6 @@
 {
   "name": "cutline",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Talkcut by Raghav: edit audio and video by editing the transcript.",
   "main": "src/main.js",
   "private": true,

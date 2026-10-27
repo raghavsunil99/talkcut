@@ -36,8 +36,16 @@
   }
 
   // Font size in pixels for a box this many pixels tall.
-  function fontPx(item, boxH) {
-    return Math.max(6, (boxH / Math.max(1, linesOf(item).length)) * 0.78);
+  // ...and never wider than the box: the longest line is estimated at about 0.62 em per
+  // character (0.7 for bold capitals), with room for the padding of boxed styles.
+  function fontPx(item, boxH, boxW = Infinity) {
+    const lines = linesOf(item);
+    const byHeight = (boxH / Math.max(1, lines.length)) * 0.78;
+    const s = styleOf(item);
+    const longest = Math.max(1, ...lines.map((l) => [...l].length));
+    const em = s.upper && s.weight >= 700 ? 0.7 : 0.62;
+    const byWidth = boxW / (longest * em + (s.bg ? 0.9 : 0));
+    return Math.max(6, Math.min(byHeight, byWidth));
   }
 
   function fontFamily(language) {
@@ -49,8 +57,9 @@
   function renderDom(el, item, language) {
     const s = styleOf(item);
     const h = el.clientHeight || parseFloat(el.style.height) || 40;
+    const w = el.clientWidth || parseFloat(el.style.width) || Infinity;
     const lines = linesOf(item);
-    const size = fontPx(item, h);
+    const size = fontPx(item, h, w);
     el.classList.add('text-layer');
     el.style.display = 'flex';
     el.style.flexDirection = 'column';
@@ -126,7 +135,7 @@
       const by = item.box.y * height;
       const bw = item.box.w * width;
       const bh = item.box.h * height;
-      const size = Math.round(fontPx(item, bh));
+      const size = Math.round(fontPx(item, bh, bw));
       const an = s.align === 'left' ? 4 : s.align === 'right' ? 6 : 5;
       const px = s.align === 'left' ? bx + (s.bg ? size * 0.45 : 0) : s.align === 'right' ? bx + bw - (s.bg ? size * 0.45 : 0) : bx + bw / 2;
       const py = by + bh / 2;
