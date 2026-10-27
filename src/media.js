@@ -4,8 +4,14 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const Frame = require('./renderer/frame');
 
-// ffmpeg-static points inside app.asar when packaged; the binary lives in app.asar.unpacked.
-const ffmpegPath = require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
+// The installed app ships ffmpeg next to its resources (resources/bin); in development
+// ffmpeg-static's binary is used. (Inside app.asar it lives in app.asar.unpacked.)
+const fs = require('node:fs');
+const WIN = process.platform === 'win32';
+const bundledFfmpeg = process.resourcesPath && path.join(process.resourcesPath, 'bin', WIN ? 'ffmpeg.exe' : 'ffmpeg');
+const ffmpegPath = bundledFfmpeg && fs.existsSync(bundledFfmpeg)
+  ? bundledFfmpeg
+  : require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
 
 function runFfmpeg(args, { onStderr, collectStdout = false } = {}) {
   return new Promise((resolve, reject) => {
@@ -185,6 +191,8 @@ async function enhanceAudio(filePath, outPath) {
 
 // Quote a path for use as a filter option value.
 function filterPath(p) {
+  // Windows paths: forward slashes, with the drive colon escaped below.
+  if (WIN) p = p.replace(/\\/g, '/');
   return `'${p.replace(/\\/g, '\\\\').replace(/'/g, "'\\''").replace(/:/g, '\\:')}'`;
 }
 
@@ -349,11 +357,16 @@ const CAPTION_FONT_FILES = [
   '/System/Library/Fonts/Avenir Next.ttc',
 ];
 
+// Windows: Nirmala UI covers Telugu and the other Indian scripts; Segoe UI the Latin text.
+const WINDOWS_FONT_FILES = ['Nirmala.ttc', 'Nirmala.ttf', 'NirmalaB.ttf', 'NirmalaS.ttf', 'segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf']
+  .map((f) => path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', f));
+
 async function prepareFontsDir(dir) {
   await fsp.mkdir(dir, { recursive: true });
-  for (const f of CAPTION_FONT_FILES) {
+  for (const f of WIN ? WINDOWS_FONT_FILES : CAPTION_FONT_FILES) {
     const target = path.join(dir, path.basename(f).replace(/\s+/g, '-'));
-    await fsp.symlink(f, target).catch(() => {});
+    // Windows needs admin rights for symlinks, so it copies the font files instead.
+    await (WIN ? fsp.copyFile(f, target) : fsp.symlink(f, target)).catch(() => {});
   }
   return dir;
 }

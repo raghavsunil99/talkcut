@@ -30,9 +30,11 @@ function createWindow() {
     height: 940,
     minWidth: 1180,
     minHeight: 680,
-    title: 'Cutline',
+    title: 'Cutline — built by Raghav',
     backgroundColor: '#16171a',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    // Windows: keep the menu out of the way (Alt shows it).
+    autoHideMenuBar: process.platform !== 'darwin',
     // Automated checks run the real UI in a window that never appears on screen.
     show: !process.env.CUTLINE_TEST,
     paintWhenInitiallyHidden: true,
@@ -82,9 +84,17 @@ let projectHasFile = false;
 let closingAfterSave = false;
 
 // Only our own renderer page may call privileged handlers.
+// Windows file URLs can differ in letter case and escaping (file:///C:/... vs file:///c:/...).
+function sameUrl(a, b) {
+  if (!a) return false;
+  if (process.platform !== 'win32') return a === b;
+  const norm = (u) => decodeURIComponent(u).replace(/\\/g, '/').toLowerCase();
+  return norm(a) === norm(b);
+}
+
 function handle(channel, fn) {
   ipcMain.handle(channel, (event, ...args) => {
-    if (event.senderFrame?.url !== RENDERER_URL) throw new Error(`Rejected ${channel} from untrusted sender`);
+    if (!sameUrl(event.senderFrame?.url, RENDERER_URL)) throw new Error(`Rejected ${channel} from untrusted sender`);
     return fn(event, ...args);
   });
 }

@@ -60,3 +60,25 @@ npm test
 - For Indian languages Whisper is given a short code-mixed example sentence, so English words come out in English letters ("account setup చేయడానికి") as people write them, instead of in the native script.
 - Telugu accuracy is far from perfect: spellings are often approximate and an occasional phrase is dropped. Whisper's Telugu is much weaker than its English; a cloud speech service would do better if that matters more than keeping everything on this Mac.
 - Whisper tends to leave out "um" and "uh", so filler removal only catches the ones it writes down.
+
+## Windows installer
+
+`npm run dist:win` builds `dist/Cutline-Setup-<version>.exe` (64-bit, NSIS) on a Mac.
+
+One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine are Intel-only):
+
+1. `brew install makensis`
+2. Make `~/Library/Caches/cutline-nsis-3.13` from Homebrew's `share/nsis` (Contrib, Include,
+   Plugins, Stubs, nsisconf.nsh), plus `elevate.exe` from electron-builder's NSIS cache and
+   `mac/makensis` linked to `/opt/homebrew/bin/makensis`.
+3. Put the Windows binaries in `vendor/win/` (not in git):
+   - `bin/ffmpeg.exe` — ffmpeg-static b6.1.1 `ffmpeg-win32-x64`
+   - `whisper/` — `whisper-cli.exe` and its DLLs from whisper.cpp v1.7.6 `whisper-blas-bin-x64.zip`
+   - `vc_redist.x64.exe` — Microsoft Visual C++ runtime (the installer runs it if missing)
+   - `ffmpeg.LICENSE`
+
+`build/afterPack.js` writes the icon and version details into `Cutline.exe` (rcedit would need Wine).
+`build/HOW TO INSTALL CUTLINE.txt` is the guide for people installing it.
+
+On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is hidden
+(it uses macOS Vision), and captions use Nirmala UI / Segoe UI.

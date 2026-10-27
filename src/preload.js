@@ -7,6 +7,7 @@ function subscribe(channel, callback) {
 }
 
 contextBridge.exposeInMainWorld('cutline', {
+  platform: process.platform,
   openMedia: () => ipcRenderer.invoke('media:open'),
   openDroppedFile: (file) => ipcRenderer.invoke('media:open-path', webUtils.getPathForFile(file)),
   openPath: (filePath) => ipcRenderer.invoke('media:open-path', filePath),

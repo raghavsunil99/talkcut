@@ -4,7 +4,43 @@
   const C = CutlineCaptions;
   const F = CutlineFrame;
   const T = CutlineTracks;
-  const fileUrl = (p) => `file://${encodeURI(p).replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
+  // file:// URL for a local path (Windows paths become file:///C:/...).
+  const fileUrl = (p) => {
+    const posix = p.replace(/\\/g, '/');
+    return `file://${posix.startsWith('/') ? '' : '/'}${encodeURI(posix).replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
+  };
+  const baseName = (p) => p.split(/[\\/]/).pop();
+
+  // Windows: Ctrl instead of ⌘ in every label, hint and message, and PC words instead of Mac ones.
+  const IS_WIN = cutline.platform === 'win32';
+  document.documentElement.dataset.platform = cutline.platform;
+  function forPlatform(text) {
+    if (!IS_WIN || !text) return text;
+    return String(text)
+      .replace(/⇧⌘/g, 'Ctrl+Shift+').replace(/⌥⌘/g, 'Ctrl+Alt+').replace(/⌘/g, 'Ctrl+')
+      .replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+')
+      .replace(/Show in Finder/g, 'Show in File Explorer').replace(/Finder/g, 'File Explorer')
+      .replace(/this Mac/g, 'this PC').replace(/your Mac/g, 'your PC').replace(/Match Mac/g, 'Match Windows');
+  }
+  function localize(rootEl) {
+    if (!IS_WIN) return;
+    const walk = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const t = forPlatform(n.nodeValue);
+      if (t !== n.nodeValue) n.nodeValue = t;
+    }
+    const els2 = rootEl.querySelectorAll ? [rootEl, ...rootEl.querySelectorAll('[title], [placeholder]')] : [];
+    for (const el of els2) {
+      if (el.title) { const t = forPlatform(el.title); if (t !== el.title) el.title = t; }
+      if (el.placeholder) { const t = forPlatform(el.placeholder); if (t !== el.placeholder) el.placeholder = t; }
+    }
+  }
+  if (IS_WIN) {
+    localize(document.body);
+    new MutationObserver((list) => {
+      for (const m of list) for (const n of m.addedNodes) localize(n.nodeType === 1 ? n : n.parentNode ?? document.body);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
   const $ = (id) => document.getElementById(id);
 
   const els = {
@@ -109,7 +145,7 @@
 
   let toastTimer = null;
   function toast(message, { error = false, ms = 4000 } = {}) {
-    els.toast.textContent = message;
+    els.toast.textContent = forPlatform(message);
     els.toast.classList.toggle('error', error);
     els.toast.hidden = false;
     clearTimeout(toastTimer);
@@ -149,7 +185,7 @@
   }
 
   function projectName() {
-    return state.projectPath ? state.projectPath.split('/').pop().replace(/\.cutline$/, '') : state.media?.name.replace(/\.[^.]+$/, '') ?? 'Cutline';
+    return state.projectPath ? baseName(state.projectPath).replace(/\.cutline$/, '') : state.media?.name.replace(/\.[^.]+$/, '') ?? 'Cutline';
   }
 
   function setSaveStatus(text, unsaved = false) {
@@ -1981,7 +2017,7 @@
     await autosave();
     try {
       const copy = await cutline.duplicateProject(state.projectPath);
-      toast(`Duplicated as “${copy.split('/').pop().replace(/\.cutline$/, '')}”.`);
+      toast(`Duplicated as “${baseName(copy).replace(/\.cutline$/, '')}”.`);
     } catch (err) { showError(err); }
   }
 
@@ -2187,7 +2223,7 @@
     if (!state.words.length) { toast('There are no words to make captions from.', { error: true }); return; }
     try {
       const out = await cutline.saveCaptions(state.media, subtitlesText(format), format);
-      if (out) toast(`Saved ${out.split('/').pop()}`, { ms: 6000 });
+      if (out) toast(`Saved ${baseName(out)}`, { ms: 6000 });
     } catch (err) {
       showError(err);
     }
@@ -2218,7 +2254,7 @@
         },
         clip: state.clip,
       });
-      if (out) toast(`Exported ${out.split('/').pop()}`, { ms: 6000 });
+      if (out) toast(`Exported ${baseName(out)}`, { ms: 6000 });
     } catch (err) {
       showError(err);
     } finally {

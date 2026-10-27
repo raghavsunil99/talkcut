@@ -1,0 +1,59 @@
+CUTLINE BY RAGHAV — HOW TO INSTALL ON WINDOWS
+=============================================
+
+Cutline edits videos by editing their transcript: delete words in the text and they are cut
+from the video. It works well for Telugu and English talking-head reels.
+
+You need: Windows 10 or 11 (64-bit), about 2 GB of free space, and internet for the first
+transcription.
+
+
+1. INSTALL
+----------
+1. Double-click  Cutline-by-Raghav-Setup-1.0.0.exe
+2. Windows may show a blue box saying "Windows protected your PC".
+   This appears because the app is new and not signed by a company. It is safe.
+   Click  "More info"  and then  "Run anyway".
+3. Click  Next  →  Install  →  Finish.
+   If Windows asks "Do you want to allow this app to make changes?" for
+   "Microsoft Visual C++", click  Yes. (Cutline's speech engine needs it.)
+4. Cutline opens. Next time, open it from the "Cutline by Raghav" icon on your desktop or in the Start menu.
+
+
+2. MAKE YOUR FIRST VIDEO
+------------------------
+1. Click  + New project  and choose your video.
+2. Cutline asks how to make the transcript:
+     • Fast — runs on your PC, free. The first time it downloads a speech model (about
+       575 MB), so it takes a while once. On a laptop it can take a few minutes per minute
+       of video.
+     • ElevenLabs — best for Telugu, and quick, but it needs an ElevenLabs API key
+       (see section 3) and uses credits from that account.
+     • Skip for now — edit without a transcript and transcribe later.
+3. Edit:
+     • Select words in the transcript and press Backspace to cut them.
+     • Right-click a word to correct its spelling (for the captions).
+     • AI tools (right side): remove retakes, filler words and long pauses; Studio Sound.
+     • Captions (right side): turn them on, pick a style, drag them on the video.
+4. Click  Export  (top right) and pick "Reels · Shorts" for Instagram and YouTube Shorts.
+
+Your projects save by themselves in  Documents › Cutline Projects.
+
+
+3. ELEVENLABS KEY (OPTIONAL, BEST FOR TELUGU)
+---------------------------------------------
+1. Make an account at elevenlabs.io → Settings → API keys → Create key.
+2. In Cutline, click the key icon at the top right (or press Ctrl+Shift+K) → Add API key →
+   paste it. The key is stored encrypted on your PC only.
+
+
+4. IF SOMETHING GOES WRONG
+--------------------------
+• "Windows protected your PC": click More info → Run anyway (see step 1).
+• Transcription is very slow: use ElevenLabs, or start with a shorter clip.
+• Fast transcription fails straight away: reinstall Cutline and click Yes when it asks to
+  install Microsoft Visual C++.
+• Auto-frame is not available on Windows (it needs a Mac). Use Crop on the video instead.
+
+
+Cutline is built by Raghav.

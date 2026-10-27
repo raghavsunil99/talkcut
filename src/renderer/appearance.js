@@ -8,7 +8,8 @@
     violet: '#7c8cff', blue: '#4c9bff', green: '#3ecf8e', orange: '#ff9f43', pink: '#ff6fb1', yellow: '#ffd84d',
   };
   const FONTS = {
-    system: { label: 'System', css: '-apple-system, "SF Pro Text", "Kohinoor Telugu", sans-serif' },
+    system: { label: 'System', css: '-apple-system, "SF Pro Text", "Segoe UI", "Kohinoor Telugu", "Nirmala UI", sans-serif' },
+    nirmala: { label: 'Nirmala UI (Windows)', css: '"Nirmala UI", "Segoe UI", sans-serif' },
     kohinoor: { label: 'Kohinoor Telugu', css: '"Kohinoor Telugu", -apple-system, sans-serif' },
     sangam: { label: 'Telugu Sangam MN', css: '"Telugu Sangam MN", -apple-system, sans-serif' },
     telugumn: { label: 'Telugu MN', css: '"Telugu MN", -apple-system, sans-serif' },

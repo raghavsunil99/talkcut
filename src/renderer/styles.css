@@ -851,3 +851,14 @@ body.cropping .overlay-layers, body.cropping .caption-layer, body.cropping .canv
 .tl-cap.sel { background: rgba(255, 216, 77, 0.38); border-color: #ffd84d; color: #fff; }
 :root[data-theme="light"] .tl-cap { color: #6b4e00; background: rgba(255, 200, 40, 0.22); }
 .tl-head.caps .tl-head-name { color: #ffd84d; }
+
+/* Windows: a normal title bar, so no room is needed for the macOS window buttons; the face
+   finder behind Auto-frame is macOS-only. */
+:root[data-platform="win32"] .toolbar { padding-left: 14px; -webkit-app-region: no-drag; }
+:root[data-platform="win32"] #prop-autoframe, :root[data-platform="win32"] .ai-card:has(#ai-autoframe) { display: none; }
+:root[data-platform="win32"] body { font-family: "Segoe UI", "Nirmala UI", sans-serif; }
+:root[data-platform="win32"] .transcript { font-family: var(--transcript-font, "Segoe UI", "Nirmala UI", sans-serif); }
+
+/* Credit */
+.brand-by { font-weight: 500; font-size: 12px; color: var(--muted); margin-left: 4px; }
+.home-credit { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); margin: 0; pointer-events: none; }

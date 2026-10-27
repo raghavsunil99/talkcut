@@ -78,6 +78,7 @@ const CLIP_PAD = 0.15; // keep word edges intact at clip boundaries
 
 function whisperCliPath() {
   const candidates = [
+    process.resourcesPath && path.join(process.resourcesPath, 'whisper', process.platform === 'win32' ? 'whisper-cli.exe' : 'whisper-cli'),
     process.resourcesPath && path.join(process.resourcesPath, 'whisper-cli'),
     path.join(__dirname, '..', 'vendor', 'whisper.cpp', 'build', 'bin', 'whisper-cli'),
   ].filter(Boolean);

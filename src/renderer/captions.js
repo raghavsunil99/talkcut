@@ -45,9 +45,13 @@
     ta: 'Tamil Sangam MN',
     ml: 'Malayalam Sangam MN',
   };
-  const LATIN_FONT = 'Avenir Next';
+  const WINDOWS = (typeof process !== 'undefined' && process.platform === 'win32')
+    || (typeof navigator !== 'undefined' && /Win/.test(navigator.platform || ''));
+  // Windows ships Nirmala UI for every Indian script and Segoe UI for Latin text.
+  const LATIN_FONT = WINDOWS ? 'Segoe UI' : 'Avenir Next';
 
   function fontFor(language) {
+    if (WINDOWS) return SCRIPT_FONTS[language] ? 'Nirmala UI' : LATIN_FONT;
     return SCRIPT_FONTS[language] ?? LATIN_FONT;
   }
 

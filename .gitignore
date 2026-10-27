@@ -4,3 +4,5 @@ node_modules/
 vendor/whisper.cpp/
 vendor/cmake-venv/
 vendor/facedetect/facedetect
+dist/
+vendor/win/
