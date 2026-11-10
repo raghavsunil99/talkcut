@@ -32,7 +32,7 @@
 |---|---|---|
 | 🪟 **Windows** 10/11 (64-bit) | [Talkcut-by-Raghav-Setup-1.0.3.exe](https://github.com/raghavsunil99/talkcut/releases/latest) | If "Windows protected your PC" appears, click **More info → Run anyway** |
 | 🍎 **Mac** with Apple silicon (M1 or newer) | [Talkcut-by-Raghav-1.0.3-mac-arm64.dmg](https://github.com/raghavsunil99/talkcut/releases/latest) | Drag to Applications, then **System Settings → Privacy & Security → Open Anyway** once |
-| 🤖 **Android** 6+ phone or tablet | [Talkcut-by-Raghav-1.0.2.apk](https://github.com/raghavsunil99/talkcut/releases/latest) | Allow installing from your browser or Files app, then **Install anyway** |
+| 🤖 **Android** 6+ phone or tablet | [Talkcut-by-Raghav-1.0.3.apk](https://github.com/raghavsunil99/talkcut/releases/latest) | Allow installing from your browser or Files app, then **Install anyway** |
 
 Step-by-step instructions: [HOW TO INSTALL TALKCUT.txt](build/HOW%20TO%20INSTALL%20TALKCUT.txt)
 
