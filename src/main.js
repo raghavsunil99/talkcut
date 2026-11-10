@@ -62,6 +62,18 @@ function createWindow() {
 
   // The editor is a single local page: never navigate away or open new windows inside the app.
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  // Right-click in a text field (API keys, names, find) offers Cut, Copy, Paste and Select All.
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    const can = params.editFlags;
+    Menu.buildFromTemplate([
+      { role: 'cut', enabled: can.canCut },
+      { role: 'copy', enabled: can.canCopy },
+      { role: 'paste', enabled: can.canPaste },
+      { type: 'separator' },
+      { role: 'selectAll', enabled: can.canSelectAll },
+    ]).popup({ window: mainWindow });
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -694,7 +706,9 @@ async function buildMenu() {
         { label: 'Remove Retakes', accelerator: 'CmdOrCtrl+Shift+R', click: command('remove-retakes') },
         { label: 'Shorten Pauses', accelerator: 'CmdOrCtrl+Shift+P', click: command('shorten-pauses') },
         { type: 'separator' },
+        { role: 'cut' },
         { role: 'copy' },
+        { role: 'paste' },
         { label: 'Select All', accelerator: 'CmdOrCtrl+A', click: command('select-all') },
       ],
     },

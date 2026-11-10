@@ -2600,6 +2600,13 @@
   b.export.addEventListener('click', openExport);
 
   cutline.onMenuCommand((name) => {
+    // In a text field (API key, names, find), Undo, Redo and Select All act on the field's text.
+    const field = document.activeElement?.closest?.('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], .editing');
+    const fieldCommands = { undo: 'undo', redo: 'redo', 'select-all': 'selectAll' };
+    if (field && fieldCommands[name]) {
+      document.execCommand(fieldCommands[name]);
+      return;
+    }
     if (state.busy) return;
     const commands = {
       'open-media': openMedia,
