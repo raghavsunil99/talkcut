@@ -188,3 +188,33 @@ test('Indian-script words keep their vowel signs when compared', () => {
   const words = [{ text: 'കാർഡ്', start: 0, end: 0.4 }, { text: 'കർഡ്', start: 0.5, end: 0.9 }];
   assert.deepEqual(E.findPhrase(words, new Set(), 'കാർഡ്'), [[0, 0]]);
 });
+
+test('edit list has kept and cut ranges, and words in both timelines', () => {
+  const media = { path: '/v/clip.mp4', name: 'clip.mp4', duration: 4, width: 1080, height: 1920 };
+  const deleted = new Set([1, 3]);
+  const cuts = E.computeCuts(words, deleted, 4);
+  const kept = E.keptRanges(cuts, 4);
+  const list = E.buildEditList({ media, language: 'te', words, deleted, kept, cuts });
+  assert.equal(list.format, 'talkcut-edit-list');
+  assert.equal(list.version, 1);
+  assert.deepEqual(list.cuts, [{ start: 1, end: 1.5 }, { start: 2.5, end: 3 }]);
+  assert.deepEqual(list.kept, [
+    { start: 0, end: 1, editedStart: 0, editedEnd: 1 },
+    { start: 1.5, end: 2.5, editedStart: 1, editedEnd: 2 },
+    { start: 3, end: 4, editedStart: 2, editedEnd: 3 },
+  ]);
+  assert.equal(list.editedDuration, 3);
+  assert.equal(list.transcript, 'Hello world bye.');
+  assert.deepEqual(list.words[1], { i: 1, text: 'um,', start: 1, end: 1.2, cut: true });
+  assert.deepEqual(list.words[2], { i: 2, text: 'world', start: 1.5, end: 1.9, cut: false, editedStart: 1, editedEnd: 1.4 });
+  assert.equal(list.words[4].editedStart, 2);
+});
+
+test('edit list edited times follow the clip speed', () => {
+  const media = { path: '/v/a.mp4', name: 'a.mp4', duration: 4 };
+  const kept = [[0, 4]];
+  const list = E.buildEditList({ media, words, deleted: new Set(), kept, cuts: [], speed: 2 });
+  assert.equal(list.editedDuration, 2);
+  assert.equal(list.words[4].editedStart, 1.5);
+  assert.equal(list.words[4].start, 3);
+});

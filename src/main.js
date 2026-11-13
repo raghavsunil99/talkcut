@@ -484,17 +484,21 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
   return filePath;
 });
 
-// Captions only, as an .srt or .vtt file.
+// Captions only, as an .srt or .vtt file, or the edit list (.json: cuts, timestamps, transcript).
 handle('captions:save', async (_event, { media, content, format }) => {
-  if (!/^(srt|vtt)$/.test(format) || typeof content !== 'string') throw new Error('Unknown captions format.');
-  const base = path.basename(media.path, path.extname(media.path));
+  if (!/^(srt|vtt|json)$/.test(format) || typeof content !== 'string') throw new Error('Unknown captions format.');
+  const base = path.basename(media.path, path.extname(media.path)) + (format === 'json' ? '.edits' : '');
   if (process.env.CUTLINE_TEST && !process.env.CUTLINE_TEST_EXPORT) throw new Error('Test mode: set CUTLINE_TEST_EXPORT to export.');
   const { canceled, filePath } = process.env.CUTLINE_TEST
     ? { canceled: false, filePath: process.env.CUTLINE_TEST_EXPORT.replace(/\.[^./]+$/, `.${format}`) }
     : await dialog.showSaveDialog(mainWindow, {
-      title: 'Save captions',
+      title: format === 'json' ? 'Save edit list' : 'Save captions',
       defaultPath: path.join(path.dirname(media.path), `${base}.${format}`),
-      filters: [format === 'srt' ? { name: 'SubRip captions', extensions: ['srt'] } : { name: 'WebVTT captions', extensions: ['vtt'] }],
+      filters: [{
+        srt: { name: 'SubRip captions', extensions: ['srt'] },
+        vtt: { name: 'WebVTT captions', extensions: ['vtt'] },
+        json: { name: 'Talkcut edit list', extensions: ['json'] },
+      }[format]],
     });
   if (canceled || !filePath) return null;
   await fs.writeFile(filePath, content);

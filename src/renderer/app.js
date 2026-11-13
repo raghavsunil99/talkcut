@@ -2191,9 +2191,9 @@
     if (!hasProject() || state.busy) return;
     const video = state.media.hasVideo;
     $('export-presets').querySelectorAll('button').forEach((b) => {
-      b.disabled = !video && !['audio', 'captions'].includes(b.dataset.preset);
+      b.disabled = !video && !['audio', 'captions', 'editlist'].includes(b.dataset.preset);
     });
-    if (!video && !['audio', 'captions'].includes(exportPreset)) exportPreset = 'audio';
+    if (!video && !['audio', 'captions', 'editlist'].includes(exportPreset)) exportPreset = 'audio';
     $('export-edited-note').textContent = `${F.CANVASES[state.clip.canvas].label} · ${frameLayout().frame.w}×${frameLayout().frame.h}`;
     $('export-burn').checked = state.captions.enabled;
     renderExportDialog();
@@ -2203,7 +2203,8 @@
   function renderExportDialog() {
     $('export-presets').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.preset === exportPreset));
     const subs = exportPreset === 'captions';
-    $('export-video-options').hidden = subs || exportPreset === 'audio';
+    const fileOnly = subs || exportPreset === 'editlist';
+    $('export-video-options').hidden = fileOnly || exportPreset === 'audio';
     $('export-sub-options').hidden = !subs;
     const notes = {
       edited: 'Exports the frame, captions, text and tracks exactly as you see them.',
@@ -2212,9 +2213,10 @@
       square: 'Square posts and ads.',
       audio: 'Just the sound: voice, Studio Sound and music.',
       captions: 'Only the captions, timed to the edited video, to upload with it.',
+      editlist: 'For other tools: what was kept and cut, with every word and its time in the original and the edited video.',
     };
     $('export-note').textContent = notes[exportPreset];
-    $('export-go').textContent = subs ? 'Save captions…' : 'Export…';
+    $('export-go').textContent = subs ? 'Save captions…' : exportPreset === 'editlist' ? 'Save edit list…' : 'Export…';
   }
 
   $('export-presets').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { exportPreset = b.dataset.preset; renderExportDialog(); }));
@@ -2225,6 +2227,7 @@
   $('export-go').addEventListener('click', () => {
     closeExport();
     if (exportPreset === 'captions') saveCaptionsFile($('export-sub-format').value);
+    else if (exportPreset === 'editlist') saveEditList();
     else exportMedia({ preset: exportPreset, quality: $('export-quality').value, burn: $('export-burn').checked, subtitles: $('export-srt').checked });
   });
 
@@ -2233,6 +2236,24 @@
       words: state.words, deleted: state.deleted, settings: state.captions, format,
       toEdited: (t) => E.toEdited(state.kept, t), speed: state.clip.speed,
     });
+  }
+
+  function editListJson() {
+    return JSON.stringify(E.buildEditList({
+      media: state.media, language: state.language, words: state.words, deleted: state.deleted,
+      speakers: state.speakers, kept: state.kept, cuts: state.cuts, speed: state.clip.speed,
+    }), null, 2);
+  }
+
+  async function saveEditList() {
+    if (!hasProject()) return;
+    if (!state.words.length) { toast('Transcribe the video first; the edit list is built from the transcript.', { error: true }); return; }
+    try {
+      const out = await cutline.saveCaptions(state.media, editListJson(), 'json');
+      if (out) toast(`Saved ${baseName(out)}`, { ms: 6000 });
+    } catch (err) {
+      showError(err);
+    }
   }
 
   async function saveCaptionsFile(format) {

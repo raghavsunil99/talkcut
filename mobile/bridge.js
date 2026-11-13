@@ -642,7 +642,7 @@
     transcribe,
     timeline: (media) => timeline({ path: media.path, duration: media.duration, hasVideo: media.hasVideo }),
     exportMedia,
-    saveCaptions: async (media, content, format) => shareFile(new TextEncoder().encode(content), `${media.name.replace(/\.[^.]+$/, '')}.${format}`, 'text/plain'),
+    saveCaptions: async (media, content, format) => shareFile(new TextEncoder().encode(content), `${media.name.replace(/\.[^.]+$/, '')}${format === 'json' ? '.edits' : ''}.${format}`, format === 'json' ? 'application/json' : 'text/plain'),
     settings: async () => ({ hasPexelsKey: Boolean(activeKey('pexels')), hasElevenLabsKey: Boolean(activeKey('elevenlabs')) }),
     setPexelsKey: async (key) => { addKey('pexels', '', key, ''); return { hasPexelsKey: true }; },
     listKeys: async () => listKeys(),

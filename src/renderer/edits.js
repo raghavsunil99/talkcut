@@ -351,9 +351,47 @@
     return ranges.reduce((sum, [s, e]) => sum + (e - s), 0);
   }
 
+  // Everything another tool needs to rebuild this edit without re-transcribing: the kept and
+  // cut ranges in the original media, and every word with its corrected text, its time in the
+  // original and, when kept, its time in the edited video. Edited times include the clip speed.
+  // Times are seconds, rounded to milliseconds. `version` changes only if the shape changes.
+  function buildEditList({ media, language = null, words, deleted, speakers = {}, kept, cuts, speed = 1, app = 'Talkcut' }) {
+    const r = (t) => Math.round(t * 1000) / 1000;
+    const edited = (t) => r(toEdited(kept, t) / speed);
+    let acc = 0;
+    const keptOut = kept.map(([s, e]) => {
+      const item = { start: r(s), end: r(e), editedStart: r(acc / speed), editedEnd: r((acc + e - s) / speed) };
+      acc += e - s;
+      return item;
+    });
+    const wordsOut = words.map((w, i) => {
+      const cut = deleted.has(i) || cutAt(cuts, (w.start + w.end) / 2) !== -1;
+      const out = { i, text: String(w.text ?? '').trim(), start: r(w.start), end: r(w.end), cut };
+      if (!cut) { out.editedStart = edited(w.start); out.editedEnd = edited(w.end); }
+      if (w.speaker != null) out.speaker = w.speaker;
+      return out;
+    });
+    const keptText = wordsOut.filter((w) => !w.cut).map((w) => w.text).join(' ').replace(/\s+/g, ' ').trim();
+    return {
+      format: 'talkcut-edit-list',
+      version: 1,
+      app,
+      createdAt: new Date().toISOString(),
+      media: { path: media.path, name: media.name, duration: r(media.duration), width: media.width ?? null, height: media.height ?? null },
+      language,
+      speed,
+      editedDuration: r(totalLength(kept) / speed),
+      kept: keptOut,
+      cuts: cuts.map(([s, e]) => ({ start: r(s), end: r(e) })),
+      speakers,
+      transcript: keptText,
+      words: wordsOut,
+    };
+  }
+
   const api = {
     FILLERS, MIN_GAP, GAP_KEEP,
-    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, mergeRanges, toEdited, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength,
+    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, mergeRanges, toEdited, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength, buildEditList,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineEdits = api;
