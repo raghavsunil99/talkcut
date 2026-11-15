@@ -151,3 +151,16 @@ test('clicking a cut marker restores the words, and Shift+Arrow selects', TIMEOU
   await page.keyboard.press('Backspace');
   await H.until(() => H.readProject(file).deleted.join() === '4,5', 'the selection to be cut');
 }, { deleted: [1, 2] }));
+
+test('View menu: workspaces and showing or hiding the timeline', TIMEOUT, () => withProject(async ({ app, page }) => {
+  const menu = (name) => app.evaluate(({ BrowserWindow }, n) => BrowserWindow.getAllWindows()[0].webContents.send('menu:command', n), name);
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('cutline.appearance') || '{}'));
+  await menu('workspace-script');
+  await H.until(async () => (await saved()).workspace === 'script', 'the script workspace');
+  await menu('workspace-reels');
+  await H.until(async () => (await saved()).workspace === 'reels', 'the reels workspace');
+  const hidden = () => page.evaluate(() => document.body.classList.contains('hide-timeline'));
+  const before = await hidden();
+  await menu('toggle-timeline');
+  await H.until(async () => (await hidden()) !== before, 'the timeline to toggle');
+}));
