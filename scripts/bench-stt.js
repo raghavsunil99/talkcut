@@ -7,6 +7,7 @@
 // per run, so two runs can be compared.
 //
 // Engines that are not available are skipped and the reason is printed:
+//   (clips are loudness-normalised, see loadClips)
 //   whisper-fast / whisper-accurate  need `npm run build:whisper` and the model in the models folder
 //                                    (WHISPER_MODEL_DIR overrides the folder)
 //   elevenlabs                       needs ELEVENLABS_API_KEY in the environment (never read from
@@ -16,6 +17,8 @@ const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { execFileSync } = require('node:child_process');
+const ffmpeg = require('ffmpeg-static');
 const { wordErrors } = require('./lib/wer.js');
 const transcribeLocal = require('../src/transcribe.js');
 const { transcribeCloud } = require('../src/cloud.js');
@@ -54,7 +57,7 @@ async function get(url, headers) {
 }
 
 async function loadClips(lang) {
-  const dir = path.join(cacheDir, 'fleurs', lang);
+  const dir = path.join(cacheDir, 'fleurs-loud', lang);
   const index = path.join(dir, 'clips.json');
   if (fs.existsSync(index)) {
     const saved = JSON.parse(await fsp.readFile(index, 'utf8'));
@@ -72,7 +75,12 @@ async function loadClips(lang) {
   const clips = [];
   for (const [file, data] of files) {
     if (!refs.has(file) || clips.length >= Math.max(CLIPS, 3)) continue;
-    await fsp.writeFile(path.join(dir, file), data);
+    // Some FLEURS clips are very quiet (peak below the app's speech floor, so Talkcut treats
+    // them as silence). Normalise loudness for every engine alike; this is not engine tuning.
+    const raw = path.join(dir, `raw-${file}`);
+    await fsp.writeFile(raw, data);
+    execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', raw, '-af', 'loudnorm=I=-20:TP=-2', '-ar', '16000', '-ac', '1', path.join(dir, file)]);
+    await fsp.rm(raw);
     clips.push({ file: path.join(dir, file), reference: refs.get(file) });
   }
   if (!clips.length) throw new Error(`no clips found for ${lang}`);
