@@ -22,6 +22,7 @@ function openFields(project) {
     deleted: project.deleted ?? [],
     cutGaps: project.cutGaps ?? [],
     order: project.order ?? null,
+    gapKeep: project.gapKeep ?? null,
     language: project.language ?? null,
     captions: project.captions ?? null,
     clip: project.clip ?? null,

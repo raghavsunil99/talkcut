@@ -11,9 +11,10 @@
     return text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}']/gu, '');
   }
 
-  function fillerIndices(words) {
+  // `set` is the filler words to look for (normalized); the English sounds by default.
+  function fillerIndices(words, set = FILLERS) {
     const out = [];
-    words.forEach((w, i) => { if (FILLERS.has(normalize(w.text))) out.push(i); });
+    words.forEach((w, i) => { if (set.has(normalize(w.text))) out.push(i); });
     return out;
   }
 
@@ -121,8 +122,8 @@
 
   // A cut pause is shortened to GAP_KEEP, split evenly around the words on either side.
   // The lead-in and tail have speech on one side only, so they lose everything but that.
-  function gapCut(gap) {
-    const half = GAP_KEEP / 2;
+  function gapCut(gap, keep = GAP_KEEP) {
+    const half = keep / 2;
     if (gap.lead) return [gap.start, gap.end - half];
     if (gap.tail) return [gap.start + half, gap.end];
     return [gap.start + half, gap.end - half];
@@ -144,7 +145,8 @@
   // removes the lead-in before the first word. Cut pauses are shortened, not removed.
   // Runs stop at the end of a piece: the next word on screen is somewhere else in the recording.
   // The result is in source time, sorted.
-  function computeCuts(words, deleted, duration, cutGaps = new Set(), rangeCuts = [], order = null) {
+  // `gapKeep` is how much silence a shortened pause keeps (GAP_KEEP unless the project changed it).
+  function computeCuts(words, deleted, duration, cutGaps = new Set(), rangeCuts = [], order = null, gapKeep = GAP_KEEP) {
     const cuts = [];
     const { pieces, pieceOf } = layout(words, order, duration);
     let i = 0;
@@ -159,7 +161,7 @@
     }
     if (cutGaps.size) {
       for (const gap of gaps(words, duration, MIN_GAP, order)) {
-        if (cutGaps.has(gap.i)) cuts.push(gapCut(gap));
+        if (cutGaps.has(gap.i)) cuts.push(gapCut(gap, gapKeep));
       }
     }
     for (const [a, b] of rangeCuts) cuts.push([Math.max(0, a), Math.min(duration, b)]);

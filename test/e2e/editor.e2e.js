@@ -34,6 +34,7 @@ test('cut, undo, redo, shorten a pause, turn on captions and export', TIMEOUT, a
     // The 1.6 s pause after "four" shrinks to 0.2 s.
     await page.click('.rail-btn[data-panel="ai"]');
     await page.click('#btn-pauses');
+    await page.click('#review-apply');
 
     await page.click('.rail-btn[data-panel="captions"]');
     await page.locator('#cap-enabled').check();

@@ -1,4 +1,4 @@
-/* global CutlinePlayer, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
+/* global CutlinePlayer, CutlineReview, CutlineReviewDialog, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
 (() => {
   const E = CutlineEdits;
   const C = CutlineCaptions;
@@ -74,6 +74,8 @@
     speakers: {}, // speaker id -> name, when words are labelled
     deleted: new Set(),
     cutGaps: new Set(), // pauses shortened, keyed like CutlineEdits.gaps
+    gapKeep: CutlineEdits.GAP_KEEP, // seconds of silence a shortened pause keeps
+    previewing: null, // { end }: playing a stretch from the review list, outside the edit
     // Play order: pieces of the recording [[start, end]] in the order they play, or null for
     // straight through. `words` is always in play order. See the notes in edits.js.
     order: null,
@@ -361,7 +363,7 @@
 
   function refresh() {
     const d = duration();
-    state.cuts = E.computeCuts(state.words, state.deleted, d, state.cutGaps, state.rangeCuts, state.order);
+    state.cuts = E.computeCuts(state.words, state.deleted, d, state.cutGaps, state.rangeCuts, state.order, state.gapKeep);
     state.kept = E.keptRanges(state.cuts, d, state.order);
     state.ends = E.isIdentity(state.order, d) ? null : E.pieceEnds(state.words, state.order, d);
     state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions, state.ends), state.words, state.ends);
@@ -373,7 +375,7 @@
     });
     paintCaret();
     if (hasProject()) {
-      timeline.setEdits({ words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, selection: sel, gapSel: state.gapSel, rangeCuts: state.rangeCuts, order: state.order });
+      timeline.setEdits({ words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, selection: sel, gapSel: state.gapSel, rangeCuts: state.rangeCuts, order: state.order, gapKeep: state.gapKeep });
       timeline.setMarks({ splits: state.splits, rangeSel: state.rangeSel });
       timeline.setTracks(T.placed(state.tracks, state.kept), state.itemSel);
       const capsOn = state.captions.enabled && state.media?.hasVideo;
@@ -426,7 +428,7 @@
 
   function snapshot() {
     return {
-      words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.committedCaptions ?? state.captions, speakers: state.speakers };
+      words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, gapKeep: state.gapKeep, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.committedCaptions ?? state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -435,6 +437,7 @@
     state.deleted = snap.deleted;
     state.cutGaps = snap.cutGaps;
     if ('order' in snap) state.order = snap.order;
+    if (snap.gapKeep != null) state.gapKeep = snap.gapKeep;
     // Undoing or redoing "Add Recording to End" changes the files behind the project.
     if (snap.media && state.media && snap.media !== state.media && snap.media.path === state.media.path) { state.media = snap.media; mod.applyMedia?.(); }
     state.playK = -1;
@@ -449,11 +452,11 @@
     state.textVersion++;
   }
 
-  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
+  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, gapKeep = state.gapKeep, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
     state.undo.push(snapshot());
     if (state.undo.length > 500) state.undo.shift();
     state.redo = [];
-    restore({ words, deleted, cutGaps, order, media, tracks, clip, splits, rangeCuts, captions, speakers });
+    restore({ words, deleted, cutGaps, order, gapKeep, media, tracks, clip, splits, rangeCuts, captions, speakers });
     setDirty(true);
     refresh();
   }
@@ -463,7 +466,7 @@
   mod.inspector = CutlineItemInspector.create({ $, els, state, E, T, panels, frameLayout, itemAspect, commit, refresh, setDirty, snapshot, updatePlayhead, editedLength, fmtTenths, showError, getCanvasEditor, resetCaptionCache });
   const { openRailPanel, brollPlacement, mediaAspect } = mod.inspector;
   function renderItemInspector() { mod.inspector?.renderItemInspector(); }
-  const { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia, moveSelection, cutWords, copyWords, pasteWords } = CutlineEditCommands.create({ $, els, state, E, T, setSelection: (a, f) => setSelection(a, f), getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast });
+  const { cutSelection, cutAtCaret, restoreRun, beginEdit, insertMedia, moveSelection, cutWords, copyWords, pasteWords } = CutlineEditCommands.create({ $, els, state, E, T, setSelection: (a, f) => setSelection(a, f), getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast });
   // Speakers first: the find module uses showSpeakerMenu.
   const { showSpeakerMenu, labelRange } = CutlineSpeakersUI.create({ $, els, state, selectionRange, commit, renderTranscript, refresh });
   const { wordList, openFind } = CutlineFindReplace.create({ $, els, state, E, getSpans, hasProject, selectionRange, setSelection, visibleFrom, wordIndexFrom, beginEdit, cutSelection, showSpeakerMenu, seek, commit, renderTranscript, toast });
@@ -534,6 +537,8 @@
   // have been moved (that can be backward). rAF gives ~16 ms resolution, which is far finer than
   // timeupdate. No new jump starts while a seek is still in flight.
   function tick() {
+    // Playing a stretch from the review list: the edit's cuts and order do not apply.
+    if (review?.previewTick()) { updatePlayhead(); requestAnimationFrame(tick); return; }
     if (!els.video.paused && !els.video.seeking) {
       const step = E.playStep(state.kept, els.video.currentTime, state.playK);
       state.playK = step.k;
@@ -635,6 +640,11 @@
 
   mod.applyMedia = applyMedia;
 
+  const review = CutlineReviewDialog.create({ $, els, state, E, R: CutlineReview, timeline, hasProject, duration, commit, refresh, toast, fmtTenths });
+  // The transcript marks the fillers that the review looks for.
+  state.fillerSet = () => review.fillerSet();
+  review.onFillersChange = () => { state.textVersion++; refresh(); };
+
   const { autoFrame } = CutlineAiTools.create({ $, els, state, F, hasProject, duration, commit, refresh, toast, showError, showOverlay, hideOverlay, openFind, showSpeakerMenu, selectionRange });
 
   const { openExport, saveCaptionsFile, exportMedia } = CutlineExportDialog.create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName, setCancellable, isCancelled });
@@ -655,9 +665,9 @@
   b.save.addEventListener('click', () => save());
   b.cut.addEventListener('click', () => cutSelection());
   b.restore.addEventListener('click', () => cutSelection({ restore: true }));
-  b.fillers.addEventListener('click', removeFillers);
-  b.retakes.addEventListener('click', removeRetakes);
-  b.pauses.addEventListener('click', shortenPauses);
+  b.fillers.addEventListener('click', () => review.open('filler'));
+  b.retakes.addEventListener('click', () => review.open('retake'));
+  b.pauses.addEventListener('click', () => review.open('pause'));
   b.undo.addEventListener('click', undo);
   b.redo.addEventListener('click', redo);
   b.export.addEventListener('click', openExport);
@@ -685,7 +695,7 @@
       redo,
       delete: () => cutSelection({ toggle: true }),
       restore: () => cutSelection({ restore: true }),
-      'remove-fillers': () => hasProject() && removeFillers(),
+      'remove-fillers': () => hasProject() && review.open('filler'),
       find: () => openFind(),
       settings: () => appearance.open(),
       'workspace-studio': () => appearance.useWorkspace('studio'),
@@ -694,8 +704,8 @@
       'workspace-reels': () => appearance.useWorkspace('reels'),
       'toggle-transcript': () => appearance.toggle('transcript'),
       'toggle-timeline': () => appearance.toggle('timeline'),
-      'remove-retakes': () => hasProject() && removeRetakes(),
-      'shorten-pauses': () => hasProject() && shortenPauses(),
+      'remove-retakes': () => hasProject() && review.open('retake'),
+      'shorten-pauses': () => hasProject() && review.open('pause'),
       'api-keys': () => openKeys(),
       'select-all': () => hasProject() && setSelection(0, state.words.length - 1),
       'toggle-play': togglePlay,
@@ -744,6 +754,7 @@
       exportMedia,
       saveCaptionsFile,
       autoFrame,
+      waveformReady: () => Boolean(timeline.peaks),
       moveSelection,
       cutWords,
       pasteWords,

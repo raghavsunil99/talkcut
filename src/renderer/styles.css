@@ -916,3 +916,24 @@ body.guides-shorts .guides .safe-right { top: 34%; bottom: 19%; width: 17%; }
 /* An inline word's box is its font's content area; line-height normal gives the copy the same
    box, so its letters sit exactly on the word's. */
 .caption-line .cw-fill { line-height: normal; }
+
+/* Review before cutting */
+.review-dialog { width: min(640px, 92vw); max-height: 86vh; }
+.review-settings { display: flex; flex-direction: column; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 12px; padding: 2px 9px; font-size: 13px; cursor: pointer; }
+.chip.on { background: var(--accent-soft); color: var(--text, inherit); border-color: var(--accent); }
+.review-slider { display: grid; grid-template-columns: 150px 1fr 56px; align-items: center; gap: 8px; font-size: 13px; }
+.review-tools { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.review-tools #review-summary { flex: 1; }
+.review-list { overflow: auto; min-height: 60px; max-height: 40vh; border: 1px solid var(--line); border-radius: 8px; }
+.review-row { display: grid; grid-template-columns: 20px 62px 1fr 52px 30px; align-items: center; gap: 8px; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+.review-row:last-child { border-bottom: none; }
+.review-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-text .ctx { color: var(--muted); }
+.review-time { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.review-tag { font-size: 11px; border-radius: 4px; padding: 1px 6px; text-align: center; background: var(--panel-2); }
+.review-tag.filler { color: #ffb84d; }
+.review-tag.sound { color: #7cc7ff; }
+.review-tag.retake { color: #ff7c9c; }
+.review-tag.pause { color: #9be38b; }

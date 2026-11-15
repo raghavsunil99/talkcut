@@ -270,9 +270,9 @@
           <h2>AI tools</h2>
         </div>
         <div class="panel-body ai-tools">
-          <div class="ai-card"><div><b>Remove retakes</b><p>Cuts earlier takes of lines you said again, keeping the last one.</p></div><button id="btn-retakes" class="btn" title="⇧⌘R" disabled>Remove</button></div>
-          <div class="ai-card"><div><b>Remove filler words</b><p>Cuts um, uh and similar sounds.</p></div><button id="btn-fillers" class="btn" title="⇧⌘F" disabled>Remove</button></div>
-          <div class="ai-card"><div><b>Shorten pauses</b><p>Trims every pause longer than 1 second.</p></div><button id="btn-pauses" class="btn" title="⇧⌘P" disabled>Shorten</button></div>
+          <div class="ai-card"><div><b>Remove retakes</b><p>Finds earlier takes of lines you said again, keeping the last one. You review them before anything is cut.</p></div><button id="btn-retakes" class="btn" title="⇧⌘R" disabled>Review</button></div>
+          <div class="ai-card"><div><b>Remove filler words</b><p>Finds um, uh and fillers in your language, and sounds with no word. You review them before anything is cut.</p></div><button id="btn-fillers" class="btn" title="⇧⌘F" disabled>Review</button></div>
+          <div class="ai-card"><div><b>Shorten pauses</b><p>Finds long pauses; you choose how long counts and how much silence stays.</p></div><button id="btn-pauses" class="btn" title="⇧⌘P" disabled>Review</button></div>
           <div class="ai-card"><div><b>Studio Sound</b><p>Removes background noise and evens out your voice.</p></div><button id="ai-studio" class="btn">Turn on</button></div>
           <div class="ai-card"><div><b>Auto-frame for 9:16</b><p>Finds your face and fills a Reels frame around it.</p></div><button id="ai-autoframe" class="btn">Frame</button></div>
           <div class="ai-card"><div><b>Speakers</b><p>Label who is speaking. ElevenLabs does this on its own.</p></div><button id="ai-speakers" class="btn">Label</button></div>
@@ -613,10 +613,44 @@
       </div>
     </div>
   </div>
+  <div id="review-dialog" class="dialog-backdrop" hidden>
+    <div class="dialog review-dialog" role="dialog" aria-labelledby="review-title">
+      <div class="dialog-head">
+        <h2 id="review-title">Review before cutting</h2>
+        <button type="button" class="btn ghost icon" id="review-close" title="Close">×</button>
+      </div>
+      <div class="segmented wrap" id="review-kinds">
+        <button type="button" data-kind="filler">Fillers</button>
+        <button type="button" data-kind="sound">Sounds without words</button>
+        <button type="button" data-kind="retake">Retakes</button>
+        <button type="button" data-kind="pause">Long pauses</button>
+      </div>
+      <div id="review-fillers" class="review-settings">
+        <div class="field-label">Filler words looked for (<span id="review-filler-lang"></span>)</div>
+        <p class="panel-hint">Highlighted words are looked for. Words like అంటే or मतलब are often real words, so they are off until you turn them on.</p>
+        <div class="chips" id="review-filler-words"></div>
+        <input type="text" class="text-input" id="review-add-word" placeholder="Add a filler word and press Enter">
+      </div>
+      <p class="panel-hint" id="review-waveform-note" hidden>The waveform is still loading; sounds without words are found once it has.</p>
+      <div id="review-pauses" class="review-settings">
+        <label class="review-slider"><span>Pauses longer than</span><input type="range" id="review-min" min="0.4" max="3" step="0.1"><span id="review-min-out" class="set-out"></span></label>
+        <label class="review-slider"><span>Silence kept in each</span><input type="range" id="review-keep" min="0.05" max="1" step="0.05"><span id="review-keep-out" class="set-out"></span></label>
+        <p class="panel-hint">The kept silence applies to every shortened pause in the project.</p>
+      </div>
+      <div class="review-tools"><span id="review-summary"></span><button type="button" class="btn ghost" id="review-all">All</button><button type="button" class="btn ghost" id="review-none">None</button></div>
+      <div class="review-list" id="review-list"></div>
+      <p id="review-empty" class="panel-hint" hidden>Nothing found.</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="review-cancel">Cancel</button>
+        <button type="button" class="btn primary" id="review-apply">Cut selected</button>
+      </div>
+    </div>
+  </div>
   <div id="drop-hint" class="drop-hint" hidden>Drop to open</div>
   <div id="toast" class="toast" hidden></div>
 
   <script src="edits.js"></script>
+  <script src="review.js"></script>
   <script src="frame.js"></script>
   <script src="tracks.js"></script>
   <script src="properties.js"></script>
@@ -648,6 +682,7 @@
   <script src="ai-tools.js"></script>
   <script src="file-drop.js"></script>
   <script src="engine-options.js"></script>
+  <script src="review-dialog.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
