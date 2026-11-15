@@ -38,7 +38,7 @@ module.exports = [
   },
   {
     // page.evaluate() callbacks run in the app's page.
-    files: ['test/e2e/**/*.js'],
+    files: ['test/e2e/**/*.js', 'scripts/bench-editor.js'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules,
   },

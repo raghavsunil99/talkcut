@@ -116,6 +116,8 @@ a { color: var(--accent); }
 }
 .transcript { font-size: var(--transcript-size, 18px); font-family: var(--transcript-font, inherit); line-height: 1.95; outline: none; user-select: none; cursor: text; }
 .transcript p { margin: 0 0 22px; padding-left: 14px; border-left: 2px solid var(--line); }
+/* Long transcripts: paragraphs off screen are not laid out or painted until scrolled to. */
+.transcript p { content-visibility: auto; contain-intrinsic-size: auto 120px; }
 .w { border-radius: 4px; padding: 1px 1px; transition: background-color 80ms; }
 .w:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); }
 .w.sel { background: var(--accent-soft); }

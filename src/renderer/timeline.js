@@ -20,8 +20,15 @@
     return `${m}:${sec}`;
   }
 
+  // Theme colours, read once per theme: getComputedStyle forces a full style recalculation, which
+  // after a transcript redraw cost more than drawing the whole timeline. The cache clears when the
+  // theme, accent or anything else on <html> changes.
+  const cssCache = new Map();
+  new MutationObserver(() => cssCache.clear()).observe(document.documentElement, { attributes: true });
+  window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => cssCache.clear());
   function cssVar(name) {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    if (!cssCache.has(name)) cssCache.set(name, getComputedStyle(document.documentElement).getPropertyValue(name).trim());
+    return cssCache.get(name);
   }
 
   class Timeline {
@@ -83,7 +90,7 @@
       rootEl.querySelector('.tl-zoom-in').addEventListener('click', () => this.zoom(1.25));
       rootEl.querySelector('.tl-zoom-out').addEventListener('click', () => this.zoom(1 / 1.25));
       rootEl.querySelector('.tl-zoom-fit').addEventListener('click', () => this.fit());
-      this.scroll.addEventListener('scroll', () => this.draw());
+      this.scroll.addEventListener('scroll', () => { this.draw(); this.renderVisibleSoon(); });
       this.scroll.addEventListener('wheel', (e) => {
         if (!(e.ctrlKey || e.metaKey)) return;
         e.preventDefault();
@@ -173,7 +180,8 @@
       this.frames = frames ?? [];
       this.images = this.frames.map((f) => {
         const img = new Image();
-        img.onload = () => this.draw();
+        // Hundreds of thumbnails finish loading one by one: redraw at most once a frame.
+        img.onload = () => this.drawSoon();
         img.src = f.src;
         return img;
       });
@@ -194,14 +202,38 @@
       this.gapSel = gapSel;
       this.cuts = E.computeCuts(this.words, deleted, this.duration, cutGaps, this.rangeCuts);
       this.kept = E.keptRanges(this.cuts, this.duration);
-      this.layout();
+      this.layoutSoon();
     }
 
     // Tracks already placed on the edited timeline (see CutlineTracks.placed).
     setTracks(tracks, selectedItem) {
       this.tracks = tracks;
       this.itemSel = selectedItem;
-      this.layout();
+      this.layoutSoon();
+    }
+
+    // One page refresh sets edits, marks, tracks and captions in a row; lay out once after them.
+    layoutSoon() {
+      if (this.layoutQueued) return;
+      this.layoutQueued = true;
+      queueMicrotask(() => { this.layoutQueued = false; this.layout(); });
+    }
+
+    // Word, pause and caption blocks exist only around the visible part of a long timeline (a
+    // screen's width either side); scrolling past that builds the next stretch.
+    visibleWindow() {
+      const w = this.scroll.clientWidth || 1200;
+      return [this.scroll.scrollLeft - w, this.scroll.scrollLeft + 2 * w];
+    }
+
+    renderVisibleSoon() {
+      const [a, b] = this.builtWindow ?? [0, 0];
+      const w = this.scroll.clientWidth || 1200;
+      const left = this.scroll.scrollLeft;
+      if (left - w / 2 >= a && left + w * 1.5 <= b) return;
+      if (this.visibleQueued) return;
+      this.visibleQueued = true;
+      requestAnimationFrame(() => { this.visibleQueued = false; this.renderChips(); this.renderCaps(); });
     }
 
     // spans: [{ start, end (source seconds), text, words }]; empty when captions are off.
@@ -218,12 +250,13 @@
       const y = this.rows.caps;
       this.caps.hidden = !y;
       if (y) {
-        const ed = (t) => E.toEdited(this.kept, t);
+        const ed = E.editedMapper(this.kept);
         const sel = this.captionSel;
+        const [from, to] = this.visibleWindow();
         this.captionSpans.forEach((span, n) => {
           const x0 = ed(span.start) * this.pps;
           const x1 = ed(span.end) * this.pps;
-          if (x1 - x0 < 1) return;
+          if (x1 - x0 < 1 || x1 < from || x0 > to) return;
           const el = document.createElement('div');
           el.className = 'tl-cap';
           if (sel && span.words[0] <= sel[1] && span.words[span.words.length - 1] >= sel[0]) el.classList.add('sel');
@@ -240,7 +273,15 @@
     setMarks({ splits, rangeSel }) {
       this.splits = splits ?? [];
       this.rangeSel = rangeSel ?? null;
-      this.draw();
+      this.drawSoon();
+    }
+
+    // Draw before the next frame unless something draws sooner (a refresh both sets marks and
+    // lays out, and layout draws).
+    drawSoon() {
+      if (this.drawQueued) return;
+      this.drawQueued = true;
+      requestAnimationFrame(() => { if (this.drawQueued) this.draw(); });
     }
 
     setTool(tool) {
@@ -354,11 +395,17 @@
       const frag = document.createDocumentFragment();
       const pps = this.pps;
       const sel = this.selection;
-      const ed = (t) => E.toEdited(this.kept, t);
+      const [from, to] = this.visibleWindow();
+      this.builtWindow = [from, to];
+      // Word starts only go forward, but a word's end can pass the next word's start, so
+      // starts and ends are mapped separately.
+      const edStart = E.editedMapper(this.kept);
+      const edEnd = E.editedMapper(this.kept);
       this.words.forEach((w, i) => {
         if (this.deleted.has(i)) return;
-        const x0 = ed(w.start) * pps;
-        const x1 = ed(Math.max(w.end, w.start + 0.05)) * pps;
+        const x0 = edStart(w.start) * pps;
+        const x1 = edEnd(Math.max(w.end, w.start + 0.05)) * pps;
+        if (x1 < from || x0 > to) return;
         const chip = document.createElement('div');
         chip.className = 'tl-chip word';
         if (sel && i >= sel[0] && i <= sel[1]) chip.classList.add('sel');
@@ -369,9 +416,11 @@
         chip.title = w.text;
         frag.appendChild(chip);
       });
+      const edGap = E.editedMapper(this.kept);
       for (const gap of E.gaps(this.words, this.duration)) {
-        const x0 = ed(gap.start) * pps;
-        const x1 = ed(gap.end) * pps;
+        const x0 = edGap(gap.start) * pps;
+        const x1 = edGap(gap.end) * pps;
+        if (x1 < from || x0 > to) continue;
         const seconds = (x1 - x0) / pps;
         if (seconds < 0.05) continue; // the pause went with a cut word
         const chip = document.createElement('div');
@@ -423,6 +472,7 @@
     // ---------- drawing ----------
 
     draw() {
+      this.drawQueued = false;
       const dpr = window.devicePixelRatio || 1;
       const w = this.scroll.clientWidth;
       const height = this.rows.height;

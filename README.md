@@ -176,6 +176,7 @@ npm run test:e2e
   - `project-flows.js` (open, transcribe, home, save, rename), `export-dialog.js`, `keys-dialog.js`, `engine-options.js`, `file-drop.js`
   - `workspace.js` (layouts, resizable timeline), `timeline-tools.js`, `platform-text.js` (Ctrl vs ⌘, phone wording)
 - `scripts/build-whisper.sh`: builds the whisper.cpp engine
+- `scripts/bench-editor.js`: times opening, selecting, cutting, undo and playback in the real app on a long project (`node scripts/bench-editor.js 60`)
 - `scripts/bench-export.js`: times the export recipe on a long source with many cuts (`node scripts/bench-export.js 60 50,200,800`)
 
 ## Notes
