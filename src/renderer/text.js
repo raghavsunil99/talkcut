@@ -36,13 +36,14 @@
   }
 
   // Font size in pixels for a box this many pixels tall.
-  // ...and never wider than the box: the longest line is estimated at about 0.62 em per
-  // character (0.7 for bold capitals), with room for the padding of boxed styles.
+  // ...and never wider than the box: the longest line is estimated at about 0.62 em per English
+  // letter (0.7 for bold capitals), Indian scripts by their measured width (C.visualLength),
+  // with room for the padding of boxed styles.
   function fontPx(item, boxH, boxW = Infinity) {
     const lines = linesOf(item);
     const byHeight = (boxH / Math.max(1, lines.length)) * 0.78;
     const s = styleOf(item);
-    const longest = Math.max(1, ...lines.map((l) => [...l].length));
+    const longest = Math.max(1, ...lines.map((l) => C.visualLength(l)));
     const em = s.upper && s.weight >= 700 ? 0.7 : 0.62;
     const byWidth = boxW / (longest * em + (s.bg ? 0.9 : 0));
     return Math.max(6, Math.min(byHeight, byWidth));

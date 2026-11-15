@@ -36,7 +36,10 @@ function measure(raw, colours) {
 }
 
 const CASES = [
-  { name: 'outline', style: { text: '#00FF66', outline: '#FF00FF', outlineW: 0.09, weight: 800 }, colours: { fill: [0, 255, 102], outline: [255, 0, 255] } },
+  // The outline's area counts edge pixels near pure magenta; where the line sits within a pixel
+  // (it moved when line spacing began to follow libass in 3.1) shifts that count by about 20%
+  // while the width stays within 4%, so the outline area is compared more loosely.
+  { name: 'outline', style: { text: '#00FF66', outline: '#FF00FF', outlineW: 0.09, weight: 800 }, colours: { fill: [0, 255, 102], outline: [255, 0, 255] }, loose: { outline: 0.3 } },
   { name: 'box', style: { text: '#FFEE00', box: '#2040C0', weight: 400 }, colours: { fill: [255, 238, 0], box: [26, 47, 140] } },
   // Karaoke, fully filled: the highlight colour fills the letters and the outline stays round them.
   // libass blends a karaoke fill into the outline differently at the letter edges, so fewer edge

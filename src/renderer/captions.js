@@ -82,6 +82,37 @@
     'Noto Sans Malayalam': 1.247,
   };
 
+  // ---------- how wide text is ----------
+  //
+  // Caption lines are filled up to a width, so text must be measured the way it looks. A count of
+  // characters (UTF-16 code units) is close for English but treats a Telugu vowel sign or virama
+  // as a letter of its own; a count of letters (grapheme clusters) treats every script alike,
+  // but a Tamil or Malayalam letter is about twice as wide as an English one. So each letter is
+  // weighted by its script's average width relative to English (a space counting as one English
+  // letter), measured from the bundled fonts at caption weight; test/codemix.test.js measures
+  // them again with libass, so these cannot go stale.
+  const SCRIPT_WIDTH = { latin: 1, deva: 1.23, beng: 1.64, taml: 2.3, telu: 1.81, knda: 1.8, mlym: 2.44 };
+  function scriptOf(ch) {
+    const c = ch.codePointAt(0);
+    if (c >= 0x0900 && c <= 0x097f) return 'deva';
+    if (c >= 0x0980 && c <= 0x09ff) return 'beng';
+    if (c >= 0x0b80 && c <= 0x0bff) return 'taml';
+    if (c >= 0x0c00 && c <= 0x0c7f) return 'telu';
+    if (c >= 0x0c80 && c <= 0x0cff) return 'knda';
+    if (c >= 0x0d00 && c <= 0x0d7f) return 'mlym';
+    return 'latin';
+  }
+  const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+  function graphemes(text) {
+    return segmenter ? [...segmenter.segment(String(text))].map((s) => s.segment) : [...String(text)];
+  }
+  // How wide `text` looks, in English letters.
+  function visualLength(text) {
+    let n = 0;
+    for (const g of graphemes(text)) n += SCRIPT_WIDTH[scriptOf(g)] ?? 1;
+    return n;
+  }
+
   // ASS font size that draws `family` at `px` CSS pixels.
   function assSize(family, px) {
     return Math.round(px * (LINE_HEIGHT[family] ?? LINE_HEIGHT[LATIN_FONT]) * 10) / 10;
@@ -103,11 +134,31 @@
   // the line's own font is a script font. libass would otherwise pick whatever system font has
   // the letters. Both fonts are given the size that draws `px` CSS pixels. `text` must already
   // be escaped for ASS.
-  function withFontRuns(text, language, px) {
+  // `colors` ({ latin, text }), when given, also draws the English runs in their own colour.
+  const LATIN_RUN = /[A-Za-z0-9\u00C0-\u024F][\u0000-\u024F\u2000-\u206F]*/g;
+  function withFontRuns(text, language, px, colors = null) {
     const script = fontFor(language);
     if (script === LATIN_FONT) return text;
-    const back = `\\fn${script}\\fs${assSize(script, px)}`;
-    return text.replace(/[A-Za-z0-9\u00C0-\u024F][\u0000-\u024F\u2000-\u206F]*/g, (run) => `{\\fn${LATIN_FONT}\\fs${assSize(LATIN_FONT, px)}}${run}{${back}}`);
+    const tint = colors ? `\\c${assColor(colors.latin)}` : '';
+    const untint = colors ? `\\c${assColor(colors.text)}` : '';
+    const back = `\\fn${script}\\fs${assSize(script, px)}${untint}`;
+    return text.replace(LATIN_RUN, (run) => `{\\fn${LATIN_FONT}\\fs${assSize(LATIN_FONT, px)}${tint}}${run}{${back}}`);
+  }
+
+  // A word split into English (Latin-letter) runs and the rest, for the preview: [{ text, latin }].
+  // In a caption whose language uses its own script, these are the runs withFontRuns switches.
+  function latinRuns(text, language) {
+    const s = String(text);
+    if (fontFor(language) === LATIN_FONT) return [{ text: s, latin: false }];
+    const out = [];
+    let at = 0;
+    for (const m of s.matchAll(LATIN_RUN)) {
+      if (m.index > at) out.push({ text: s.slice(at, m.index), latin: false });
+      out.push({ text: m[0], latin: true });
+      at = m.index + m[0].length;
+    }
+    if (at < s.length) out.push({ text: s.slice(at), latin: false });
+    return out;
   }
 
   // ---------- custom styles ----------
@@ -128,7 +179,7 @@
   const GROW = 0.08;
   // Outline thickness choices, as a fraction of the font size.
   const OUTLINES = { none: 0, thin: 0.035, medium: 0.06, thick: 0.09 };
-  const STYLE_KEYS = ['text', 'hi', 'outline', 'outlineW', 'box', 'upper', 'weight', 'maxWords', 'lines', 'animation'];
+  const STYLE_KEYS = ['text', 'hi', 'outline', 'outlineW', 'box', 'upper', 'weight', 'maxWords', 'lines', 'animation', 'latin'];
   const HEX = /^#[0-9a-f]{6}$/i;
 
   // The values in `style` that are valid, everything else dropped.
@@ -136,6 +187,9 @@
     const out = {};
     if (!style || typeof style !== 'object') return out;
     for (const k of ['text', 'hi', 'outline']) if (HEX.test(String(style[k]))) out[k] = String(style[k]).toUpperCase();
+    // English words' own colour in an Indian-language caption, or null for the text colour.
+    if (style.latin === null) out.latin = null;
+    else if (HEX.test(String(style.latin))) out.latin = String(style.latin).toUpperCase();
     if (Number.isFinite(Number(style.outlineW))) out.outlineW = Math.min(0.15, Math.max(0, Number(style.outlineW)));
     if (style.box === null) out.box = null;
     else if (HEX.test(String(style.box))) out.box = hexToRgba(style.box, 0.72);
@@ -155,10 +209,10 @@
 
   // The resolved style for caption settings (or a preset id).
   function styleOf(settings) {
-    if (typeof settings === 'string' || settings == null) return { ...(PRESETS[settings] ?? PRESETS.highlight), lines: 1, animation: 'none' };
+    if (typeof settings === 'string' || settings == null) return { ...(PRESETS[settings] ?? PRESETS.highlight), lines: 1, animation: 'none', latin: null };
     if (settings.maxChars && settings.mode) return settings; // already resolved
     const base = PRESETS[settings.preset] ?? PRESETS.highlight;
-    const style = { lines: 1, animation: 'none', ...base, ...cleanStyle(settings.style) };
+    const style = { lines: 1, animation: 'none', latin: null, ...base, ...cleanStyle(settings.style) };
     // Karaoke fills the words one by one, so it needs the highlight colour and one line per group.
     if (style.animation === 'karaoke') style.mode = 'highlight';
     return style;
@@ -219,9 +273,10 @@
       if (deleted.has(i)) return;
       const prevIndex = cur.length ? cur[cur.length - 1] : -1;
       const prev = prevIndex >= 0 ? words[prevIndex] : null;
-      if (prev && (w.start - prev.end > 0.7 || w.start < prev.start || (ends && ends[i] !== ends[prevIndex]) || cur.length >= p.maxWords || chars + w.text.length + 1 > p.maxChars)) flush();
+      const width = visualLength(w.text);
+      if (prev && (w.start - prev.end > 0.7 || w.start < prev.start || (ends && ends[i] !== ends[prevIndex]) || cur.length >= p.maxWords || chars + width + 1 > p.maxChars)) flush();
       cur.push(i);
-      chars += w.text.length + 1;
+      chars += width + 1;
       if (/[.!?।]["')\]]?$/.test(w.text)) flush();
     });
     flush();
@@ -233,13 +288,13 @@
   // they break at the same word whatever their own wrapping would do.
   function breakAt(texts, style) {
     if ((style.lines || 1) < 2 || texts.length < 2) return -1;
-    const total = texts.reduce((n, t) => n + t.length + 1, 0);
+    const total = texts.reduce((n, t) => n + visualLength(t) + 1, 0);
     if (texts.length <= style.maxWords && total <= style.maxChars + 1) return -1; // fits on one line
     let best = -1;
     let bestDiff = Infinity;
     let left = 0;
     for (let k = 1; k < texts.length; k++) {
-      left += texts[k - 1].length + 1;
+      left += visualLength(texts[k - 1]) + 1;
       const diff = Math.abs(left - (total - left));
       if (diff < bestDiff) { best = k; bestDiff = diff; }
     }
@@ -387,8 +442,12 @@
       const texts = span.words.map((i) => words[i].text);
       const brk = breakAt(texts, p);
       const join = (parts) => parts.map((t, k) => (k === brk ? `\\N${t}` : (k ? ` ${t}` : t))).join('');
+      // English words in their own colour, when the style asks for it (not on the spoken word,
+      // which takes the highlight colour, and not in karaoke, which fills every word).
+      const latinColors = p.latin && p.animation !== 'karaoke' ? { latin: p.latin, text: p.text } : null;
       const line = (current) => join(span.words.map((i) => {
-        const text = withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize);
+        const spoken = p.mode === 'highlight' && i === current && p.hi !== p.text;
+        const text = withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize, spoken ? null : latinColors);
         if (p.mode !== 'highlight' || i !== current || p.hi === p.text) return text;
         return `{\\c${assColor(p.hi)}}${text}{\\c${assColor(p.text)}}`;
       }));
@@ -449,7 +508,7 @@
     return `${header.join('\n')}\n${events.join('\n')}\n`;
   }
 
-  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, ANIMATIONS, POP, GROW, OUTLINES, STYLE_KEYS, cleanStyle, styleOf, isCustom, breakAt, lineScale, hexToRgba, SCRIPT_FONTS, FONT_FILES, LINE_HEIGHT, LATIN_FONT, fontFor, fontStack, assSize, withFontRuns, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
+  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, SCRIPT_WIDTH, scriptOf, graphemes, visualLength, latinRuns, ANIMATIONS, POP, GROW, OUTLINES, STYLE_KEYS, cleanStyle, styleOf, isCustom, breakAt, lineScale, hexToRgba, SCRIPT_FONTS, FONT_FILES, LINE_HEIGHT, LATIN_FONT, fontFor, fontStack, assSize, withFontRuns, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineCaptions = api;
 })(typeof window !== 'undefined' ? window : globalThis);
