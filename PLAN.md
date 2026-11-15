@@ -336,6 +336,11 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 ### Phase 2: core wins
 
 #### 2.1 Transcription benchmark
+**Status: done, but no accuracy numbers have been produced yet.** `node scripts/bench-stt.js` fetches 3 clips per language from FLEURS (Google, CC BY 4.0; covers te, ta, ml, kn, hi, en; only the first ~4 MB of each test archive is downloaded, about 14 MB cached under the system temp folder, not the 2.5 GB archives), runs each available engine and prints one table plus a JSON file beside the cache. WER is computed in `scripts/lib/wer.js` over words after the editor's `normalize()` (unit-tested in `test/wer.test.js`, including a Telugu pair and a vowel-sign case). On this Mac whisper.cpp is not built (`npm run build:whisper` was not run without asking) and `ELEVENLABS_API_KEY` was not set, so every engine was skipped; the corpus download, the table and the skip messages were run, the scoring loop was exercised only with a rejected fake key. A marked spot in the script is left for Sarvam (task 2.2, key from `SARVAM_API_KEY`). Caveats:
+- FLEURS is read speech, so every engine's numbers will look better than a creator's phone recording.
+- FLEURS has no word times, so the start-time error column prints n/a rather than a made-up number.
+- Code-mixed accuracy stays unmeasured: there is no public reference and the repo has no demo clip, so the English-in-Latin-letters column is empty.
+- Three clips per language is a smoke test, not a statistically solid comparison; raise it with `--clips=N`.
 1. **Why:** engine choices are currently based on one Telugu clip.
 2. **Files:** new `scripts/bench-stt.js`, new `test/fixtures/stt/` (downloaded by a script, not stored in git).
 3. **Approach:**
