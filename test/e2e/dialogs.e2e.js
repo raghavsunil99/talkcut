@@ -82,3 +82,13 @@ test('the item inspector edits a B-roll photo, undoes and deletes it', TIMEOUT, 
     await H.until(() => H.readProject(file).tracks[0].items.length === 0, 'the delete to be saved');
   });
 });
+
+test('a title added from Elements can be retyped', TIMEOUT, () => withProject(async ({ page, file }) => {
+  await page.click('.rail-btn[data-panel="elements"]');
+  await page.click('.text-preset[data-preset="title"]');
+  await page.locator('#text-edit').waitFor();
+  await page.fill('#text-content', 'Top 5 tips');
+  await page.locator('#text-content').blur();
+  await H.until(() => H.readProject(file).tracks?.[0]?.items?.[0]?.text === 'Top 5 tips', 'the title to be saved');
+  assert.equal(H.readProject(file).tracks[0].items[0].kind, 'text');
+}));
