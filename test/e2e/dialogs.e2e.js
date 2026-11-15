@@ -107,3 +107,15 @@ test('the video can be selected and nudged on the canvas, and cropped', TIMEOUT,
   await H.until(async () => /Cropped/.test(await page.locator('#toast').textContent()), 'the crop to finish');
   assert.equal(await page.evaluate(() => document.body.classList.contains('cropping')), false);
 }));
+
+test('the project is renamed by editing its title', TIMEOUT, () => withProject(async ({ page, dir }) => {
+  const title = page.locator('#doc-title');
+  await title.click();
+  await page.keyboard.press('Meta+a');
+  await page.keyboard.type('My Reel');
+  await page.keyboard.press('Enter');
+  const projects = require('node:path').join(dir, 'projects');
+  await H.until(() => fs.existsSync(require('node:path').join(projects, 'My Reel.talkcut')), 'the renamed file');
+  assert.equal(fs.existsSync(require('node:path').join(projects, 'Demo.talkcut')), false);
+  assert.equal(await title.textContent(), 'My Reel');
+}));
