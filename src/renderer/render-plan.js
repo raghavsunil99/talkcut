@@ -27,6 +27,28 @@
     'alimiter=limit=0.9',
   ].join(',');
 
+  // The voice-cleanup chain. `engine` 'nlm' is the original chain above (non-local means);
+  // 'rnnoise' uses ffmpeg's arnndn with a bundled RNNoise model instead. `strength` (0 to 1) is
+  // how much of the cleaned signal is used, the rest being the original, and how deep the gate cuts.
+  function voiceChain({ engine = 'nlm', strength = 1, modelPath = null, filterPath = (p) => p } = {}) {
+    const k = Math.min(1, Math.max(0, Number(strength)));
+    if (engine !== 'rnnoise' || !modelPath) {
+      return k >= 1 ? STUDIO_SOUND : STUDIO_SOUND.replace('anlmdn=s=7', `anlmdn=s=${(7 * k).toFixed(2)}`).replace('range=0.05', `range=${(0.05 + 0.95 * (1 - k)).toFixed(3)}`);
+    }
+    return [
+      'highpass=f=75',
+      // RNNoise is made for 48 kHz audio; at other rates it misjudges what is speech.
+      'aresample=48000',
+      `arnndn=m=${filterPath(modelPath)}:mix=${k.toFixed(2)}`,
+      // The gate keeps the pauses quiet: without it the compressor lifts what RNNoise left
+      // there (8 dB of the gain, measured). It closes less far at lower strengths.
+      `agate=threshold=0.03:ratio=6:attack=5:release=250:range=${(0.05 + 0.35 * (1 - k)).toFixed(3)}`,
+      'equalizer=f=3200:t=q:w=1.2:g=3',
+      'acompressor=threshold=0.1:ratio=3:attack=10:release=200:makeup=1.5',
+      'alimiter=limit=0.9',
+    ].join(',');
+  }
+
   // Some videos store non-square pixels (e.g. 1080x1080 shown as 9:16). Turning them into
   // square pixels first keeps every thumbnail, frame and export at the shape it is shown at.
   const SQUARE = 'scale=trunc(iw*sar/2)*2:ih,setsar=1';
@@ -39,7 +61,7 @@
   function buildRenderArgs({
     input, output, ranges, hasVideo, hasAudio, duration, width, height,
     overlays = [], audio = [], assPath = null, textAssPath = null, fontsDir = null, clip = null, crf = 18,
-    preset = 'medium', filterPath, fps = null, sources = null,
+    preset = 'medium', filterPath, fps = null, sources = null, rnnoiseModel = null,
   }) {
   // Crop, rotation, frame and placement (see renderer/frame.js); speed and volume come last so
     // B-roll and caption times, which are on the edited timeline, stay in step.
@@ -206,8 +228,11 @@
     }
     if (hasAudio) {
       const gain = muted ? 0 : volume;
-      const voiceChain = [enhance ? STUDIO_SOUND : null, gain !== 1 ? `volume=${gain.toFixed(3)}` : null].filter(Boolean);
-      parts.push(`[ca]${voiceChain.length ? voiceChain.join(',') : 'anull'}[voice]`);
+      // Studio Sound uses RNNoise when its model is available (the desktop app ships it), and the
+      // original filter chain otherwise (the phone build).
+      const clean = enhance ? voiceChain({ engine: rnnoiseModel ? 'rnnoise' : 'nlm', strength: L.props.enhanceStrength ?? 1, modelPath: rnnoiseModel, filterPath }) : null;
+      const chain = [clean, gain !== 1 ? `volume=${gain.toFixed(3)}` : null].filter(Boolean);
+      parts.push(`[ca]${chain.length ? chain.join(',') : 'anull'}[voice]`);
       let mixed = 'voice';
       if (sounds.length) {
         const prep = (snd, i) => {
@@ -245,7 +270,7 @@
     return { args, total };
   }
 
-  const api = { STUDIO_SOUND, SQUARE, GROUP, CUT_FADE, frameRate, buildRenderArgs };
+  const api = { STUDIO_SOUND, voiceChain, SQUARE, GROUP, CUT_FADE, frameRate, buildRenderArgs };
   if (isNode) module.exports = api;
   else root.CutlineRenderPlan = api;
 })(typeof window !== 'undefined' ? window : globalThis);

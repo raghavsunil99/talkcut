@@ -19,6 +19,8 @@
     volume: 1, // 0..2
     muted: false,
     enhance: false, // Studio Sound: voice cleanup
+    enhanceStrength: 0.8, // how much of the cleaned voice is used (0 to 1); see scripts/bench-sound.js
+    loudness: null, // export loudness target in LUFS (-14 social, -16 podcasts), or null to leave it
     canvas: 'original',
     scale: 1, // 1 = fit inside the frame
     x: 0, // offset as a fraction of the frame width
@@ -42,6 +44,8 @@
     s.volume = clamp(s.volume, 0, 2, 1);
     s.muted = Boolean(s.muted);
     s.enhance = Boolean(s.enhance);
+    s.enhanceStrength = clamp(s.enhanceStrength, 0, 1, 0.8);
+    s.loudness = [-14, -16].includes(Number(s.loudness)) ? Number(s.loudness) : null;
     if (!CANVASES[s.canvas]) s.canvas = 'original';
     s.scale = clamp(s.scale, 0.1, 4, 1);
     s.x = clamp(s.x, -1, 1, 0);

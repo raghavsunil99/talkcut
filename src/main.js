@@ -8,7 +8,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain, shell, safeStorage } = requir
 if (app.isPackaged && !process.env.CUTLINE_USER_DATA) app.setPath('userData', path.join(app.getPath('appData'), 'Talkcut'));
 if (process.env.CUTLINE_USER_DATA) app.setPath('userData', process.env.CUTLINE_USER_DATA);
 const os = require('node:os');
-const { probe, renderEdit, computePeaks, extractFrames, thumbnail, prepareFontsDir, enhanceAudio, STUDIO_SOUND, findFaces } = require('./media');
+const { probe, renderEdit, computePeaks, extractFrames, thumbnail, prepareFontsDir, enhanceAudio, studioChain, matchLoudness, findFaces } = require('./media');
 const crypto = require('node:crypto');
 const { transcribe, LANGUAGES, MODELS, CLOUD_QUALITY } = require('./transcribe');
 const { transcribeCloud, usage: elevenLabsUsage } = require('./cloud');
@@ -425,9 +425,9 @@ handle('audio:describe', async (_event, filePath) => describeAudio(filePath));
 
 // Studio Sound preview: the cleaned voice, made once per file (and per filter chain) and cached.
 const enhancing = new Map();
-handle('audio:enhanced', async (_event, filePath) => {
+handle('audio:enhanced', async (_event, filePath, strength = 0.8) => {
   const stat = await fs.stat(filePath);
-  const key = crypto.createHash('sha1').update(`${filePath}|${stat.size}|${stat.mtimeMs}|${STUDIO_SOUND}`).digest('hex').slice(0, 16);
+  const key = crypto.createHash('sha1').update(`${filePath}|${stat.size}|${stat.mtimeMs}|${studioChain(strength)}`).digest('hex').slice(0, 16);
   const dir = path.join(app.getPath('userData'), 'cache');
   const out = path.join(dir, `studio-sound-${key}.m4a`);
   if (!(await fs.access(out).then(() => true, () => false))) {
@@ -435,7 +435,7 @@ handle('audio:enhanced', async (_event, filePath) => {
       enhancing.set(out, (async () => {
         await fs.mkdir(dir, { recursive: true });
         const tmp = `${out}.part.m4a`;
-        await enhanceAudio(filePath, tmp);
+        await enhanceAudio(filePath, tmp, { strength });
         await fs.rename(tmp, out);
       })().finally(() => enhancing.delete(out)));
     }
@@ -600,8 +600,13 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
         fontsDir,
         clip,
         crf,
-        onProgress: (progress) => send('export:progress', { progress }),
+        onProgress: (progress) => send('export:progress', { progress: progress * (clip?.loudness != null && media.hasAudio ? 0.85 : 1) }),
       });
+      // Loudness target: measure the exported sound and set it to the target exactly.
+      if (clip?.loudness != null && media.hasAudio) {
+        send('export:progress', { progress: 0.9 });
+        await matchLoudness(filePath, clip.loudness, { signal: job.signal });
+      }
     } catch (err) {
       // A cancelled or failed export leaves no half-written file behind.
       await fs.rm(filePath, { force: true });

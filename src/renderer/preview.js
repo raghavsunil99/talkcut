@@ -76,22 +76,30 @@
     // Studio Sound preview: a cleaned copy of the voice plays in step with the (muted) video.
     const enhancedEl = new Audio();
     enhancedEl.preload = 'auto';
-    const enhancedUrls = new Map(); // media path -> url, or a pending promise
+    const enhancedUrls = new Map(); // media path and strength -> url, or a pending promise
+    const enhancedKey = () => `${state.media?.path}|${state.clip.enhanceStrength}`;
     function enhancedReady() {
-      const url = state.media && enhancedUrls.get(state.media.path);
+      const url = state.media && enhancedUrls.get(enhancedKey());
       // With a second recording added, the cleaned preview (made from the first file only) is
       // off; the export still cleans the whole edit.
       return state.clip.enhance && typeof url === 'string' && !state.media.sources ? url : null;
     }
+    // Made once per file and strength. While the strength slider moves, wait until it rests.
+    let prepareTimer = null;
     function prepareEnhanced() {
+      clearTimeout(prepareTimer);
+      prepareTimer = setTimeout(prepareNow, 500);
+    }
+    function prepareNow() {
       const media = state.media;
-      if (!media || enhancedUrls.has(media.path)) return;
+      const key = enhancedKey();
+      if (!media || !state.clip.enhance || enhancedUrls.has(key)) return;
       toast('Preparing Studio Sound preview…', { ms: 2500 });
-      const pending = cutline.enhancedAudio(media.path).then((url) => {
-        enhancedUrls.set(media.path, url);
-        if (state.media?.path === media.path) { applyAudio(); toast('Studio Sound is on. The export uses it too.'); }
-      }).catch((err) => { enhancedUrls.delete(media.path); showError(err); });
-      enhancedUrls.set(media.path, pending);
+      const pending = cutline.enhancedAudio(media.path, state.clip.enhanceStrength).then((url) => {
+        enhancedUrls.set(key, url);
+        if (enhancedKey() === key) { applyAudio(); toast('Studio Sound is on. The export uses it too.'); }
+      }).catch((err) => { enhancedUrls.delete(key); showError(err); });
+      enhancedUrls.set(key, pending);
     }
     function syncEnhanced() {
       const url = enhancedReady();
