@@ -254,6 +254,8 @@ Do these in the order listed. 1.1 to 1.3 are the safety net for 1.4.
 7. **Model:** **Fable 5.2.** The recipe ties together cuts, captions, overlays and the audio mix, and sync faults here are subtle.
 
 #### 1.6 Cancel and clearer failures for long jobs
+
+**Status: done except the model checksum.** A Cancel button on the progress overlay stops an export (no half-written file is left; back in the editor in under 2 s in the e2e test) or a transcription (the video stays open without a transcript). Cancelling kills ffmpeg or whisper.cpp at once and aborts ElevenLabs uploads and model downloads. An interrupted model download keeps its `.part` file and the next attempt resumes with an HTTP range request (unit-tested against a local range server). Disk full, permission denied and unreadable files get plain messages. Not done: the SHA-256 check, because the expected hashes for the two model files were not available offline; the existing exact-size check stays.
 1. **Why:** a wrong export or a 20-minute transcription cannot be stopped short of quitting.
 2. **Files:** `src/media.js` (`runFfmpeg`), `src/transcribe.js` (`runWhisper`, `ensureModel`), `src/cloud.js`, `src/main.js`, `src/preload.js`, the overlay in `app.js` and `index.html`.
 3. **Approach:**

@@ -441,6 +441,7 @@ a { color: var(--accent); }
 .overlay { position: fixed; inset: 0; background: rgba(10, 11, 13, 0.72); display: grid; place-items: center; z-index: 10; }
 .overlay-card { width: 400px; padding: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; }
 .overlay-title { font-weight: 600; font-size: 16px; margin-top: 14px; }
+.overlay-cancel { margin-top: 16px; }
 .overlay-detail { color: var(--muted); font-size: 13px; margin-top: 4px; min-height: 20px; }
 .progress { margin-top: 14px; height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; }
 .progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 150ms; }

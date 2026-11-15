@@ -155,6 +155,22 @@
 
   function hideOverlay() { els.overlay.hidden = true; }
 
+  // Exports and transcriptions can be stopped from the progress overlay.
+  function setCancellable(on) {
+    const button = $('overlay-cancel');
+    button.hidden = !on;
+    button.disabled = false;
+    button.textContent = 'Cancel';
+  }
+  $('overlay-cancel').addEventListener('click', () => {
+    const button = $('overlay-cancel');
+    button.disabled = true;
+    button.textContent = 'Cancelling…';
+    cutline.cancelJob?.();
+  });
+  // A job that was cancelled ends with this error; it is not a failure to report.
+  const isCancelled = (err) => /\bCANCELLED\b/.test(String(err?.message ?? err));
+
   function selectionRange() {
     if (state.anchor < 0 || state.focus < 0) return null;
     return [Math.min(state.anchor, state.focus), Math.max(state.anchor, state.focus)];
@@ -566,11 +582,11 @@
     }
   });
 
-  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay });
+  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled });
 
   const { autoFrame } = CutlineAiTools.create({ $, els, state, F, hasProject, duration, commit, refresh, toast, showError, showOverlay, hideOverlay, openFind, showSpeakerMenu, selectionRange });
 
-  const { openExport, saveCaptionsFile, exportMedia } = CutlineExportDialog.create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName });
+  const { openExport, saveCaptionsFile, exportMedia } = CutlineExportDialog.create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName, setCancellable, isCancelled });
 
   const { loadSettings } = CutlineEngineOptions.create({ els, languageNames });
 

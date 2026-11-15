@@ -1,7 +1,7 @@
 // Export dialog: presets, quality, captions burn-in and SRT/VTT, and the export itself.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
-  function create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName }) {
+  function create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName, setCancellable, isCancelled }) {
     // ---------- export dialog ----------
 
     let exportPreset = 'edited';
@@ -80,6 +80,7 @@
       const stop = cutline.onExportProgress(({ progress }) => {
         showOverlay('Exporting…', `${Math.round(progress * 100)}%`, progress);
       });
+      setCancellable(true);
       try {
         const out = await cutline.exportMedia(state.media, ranges, {
           ...T.forExport(state.tracks, ranges),
@@ -96,8 +97,10 @@
         });
         if (out) toast(`Exported ${baseName(out)}`, { ms: 6000 });
       } catch (err) {
-        showError(err);
+        if (isCancelled(err)) toast('Export cancelled. Nothing was saved.');
+        else showError(err);
       } finally {
+        setCancellable(false);
         stop();
         state.busy = false;
         hideOverlay();

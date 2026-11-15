@@ -149,7 +149,7 @@ Speech models download on first use into the app's data folder (`~/Library/Appli
 - **Playback**: «/» jump 5 s, speed from 0.75x to 2x, and the bar above the timeline scrubs through the whole edit.
 - **Undo / Redo**: ⌘Z / ⇧⌘Z.
 - **Save** (⌘S) writes a `.talkcut` project file (transcript, language, cuts and tracks) to Documents › Talkcut Projects. **Open project** reopens it without transcribing again.
-- **Export** (⌘E) renders an MP4 (video) or M4A/WAV/MP3 (audio). Your original file is never changed.
+- **Export** (⌘E) renders an MP4 (video) or M4A/WAV/MP3 (audio). Your original file is never changed. Cancel on the progress window stops an export or a transcription; a cancelled export leaves no file, and a cancelled speech-model download continues where it stopped next time.
 
 ## Test
 

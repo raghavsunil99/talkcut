@@ -1,7 +1,7 @@
 // Project flows: opening media, the transcription prompt, the home screen, and opening, saving and renaming projects.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
-  function create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay }) {
+  function create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled }) {
     // ---------- file flows ----------
 
     function resetFor(media) {
@@ -152,7 +152,14 @@
     // Transcribe the open media and put the words in the project (new or existing).
     async function transcribeInto(choice) {
       showOverlay('Preparing audio…', state.media.name);
-      const { words, language } = await transcribeWithFailover(state.media.path);
+      setCancellable(true);
+      let result;
+      try {
+        result = await transcribeWithFailover(state.media.path);
+      } finally {
+        setCancellable(false);
+      }
+      const { words, language } = result;
       if (!words.length) throw new Error('No speech was found in this file.');
       const labelled = CutlineSpeakers.fromTranscript(E.applyWordList(words, wordList()));
       state.words = labelled.words;
@@ -195,9 +202,13 @@
             message = `Transcribed ${count} words (${langName})`;
           } catch (err) {
             // Keep the video open; it can be edited without a transcript and transcribed later.
-            failure = String(err?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
             choice = 'skip';
-            message = `Transcription failed: ${failure.replace(/[.\s]*$/, '')}. The video is open without a transcript. Use Transcribe… in the transcript pane to try again.`;
+            if (isCancelled(err)) {
+              message = 'Transcription cancelled. The video is open without a transcript. Use Transcribe… in the transcript pane whenever you want one.';
+            } else {
+              failure = String(err?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+              message = `Transcription failed: ${failure.replace(/[.\s]*$/, '')}. The video is open without a transcript. Use Transcribe… in the transcript pane to try again.`;
+            }
           }
         }
         state.loadingMedia = false;
@@ -244,7 +255,8 @@
         toast(`Transcribed ${count} words (${langName}).`);
         timeline.setMedia({ words: state.words, duration: duration(), name: state.media?.name ?? '' });
       } catch (err) {
-        showError(err);
+        if (isCancelled(err)) toast('Transcription cancelled.');
+        else showError(err);
       } finally {
         state.busy = false;
         hideOverlay();
