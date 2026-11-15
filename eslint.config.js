@@ -6,7 +6,7 @@ const globals = require('globals');
 const cutlineGlobals = Object.fromEntries([
   'CutlineAppearance', 'CutlineCanvas', 'CutlineCaptions', 'CutlineCrop', 'CutlineEdits', 'CutlineFrame',
   'CutlineHome', 'CutlinePanels', 'CutlineProperties', 'CutlineRenderPlan', 'CutlineSpeakers', 'CutlineText',
-  'CutlineTimeline', 'CutlineTracks', 'CutlineTextEditor', 'CutlineItemInspector', 'CutlineSpeakersUI', 'CutlineFindReplace', 'CutlineExportDialog', 'CutlineKeysDialog',
+  'CutlineTimeline', 'CutlineTracks', 'CutlineCanvasController', 'CutlineTextEditor', 'CutlineItemInspector', 'CutlineSpeakersUI', 'CutlineFindReplace', 'CutlineExportDialog', 'CutlineKeysDialog',
 ].map((name) => [name, 'readonly']));
 
 const rules = {
@@ -34,6 +34,12 @@ module.exports = [
         FFmpegWASM: 'readonly', Capacitor: 'readonly',
       },
     },
+    rules,
+  },
+  {
+    // page.evaluate() callbacks run in the app's page.
+    files: ['test/e2e/**/*.js'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules,
   },
 ];

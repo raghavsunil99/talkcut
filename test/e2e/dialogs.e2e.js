@@ -92,3 +92,18 @@ test('a title added from Elements can be retyped', TIMEOUT, () => withProject(as
   await H.until(() => H.readProject(file).tracks?.[0]?.items?.[0]?.text === 'Top 5 tips', 'the title to be saved');
   assert.equal(H.readProject(file).tracks[0].items[0].kind, 'text');
 }));
+
+test('the video can be selected and nudged on the canvas, and cropped', TIMEOUT, () => withProject(async ({ page, file }) => {
+  const box = await page.locator('#stage').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await H.until(() => page.evaluate(() => window.cutlineState.mainSel), 'the video to be selected');
+  await page.keyboard.press('Shift+ArrowRight');
+  await H.until(() => Math.abs((H.readProject(file).clip?.x ?? 0) - 0.1) < 0.01, 'the 10% nudge to be saved');
+
+  // Selecting the video opened Properties.
+  await page.click('#prop-crop-canvas');
+  await H.until(() => page.evaluate(() => document.body.classList.contains('cropping')), 'crop mode');
+  await page.keyboard.press('Enter');
+  await H.until(async () => /Cropped/.test(await page.locator('#toast').textContent()), 'the crop to finish');
+  assert.equal(await page.evaluate(() => document.body.classList.contains('cropping')), false);
+}));
