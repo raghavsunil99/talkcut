@@ -141,3 +141,13 @@ test('remove fillers, remove retakes and correct a word', TIMEOUT, async () => {
     assert.equal(H.readProject(file).words.length, 11, 'correcting text does not cut anything');
   });
 });
+
+test('clicking a cut marker restores the words, and Shift+Arrow selects', TIMEOUT, () => withProject(async ({ page, file }) => {
+  await page.locator('#transcript .del[data-from="1"][data-to="2"]').click();
+  await H.until(() => H.readProject(file).deleted.length === 0, 'the restore');
+  await page.locator('#transcript .w[data-i="4"]').click({ position: { x: 1, y: 5 } });
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('Backspace');
+  await H.until(() => H.readProject(file).deleted.join() === '4,5', 'the selection to be cut');
+}, { deleted: [1, 2] }));
