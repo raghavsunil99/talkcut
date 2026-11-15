@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('cutline', {
   setDirty: (dirty, hasFile = false) => ipcRenderer.invoke('project:set-dirty', Boolean(dirty), Boolean(hasFile)),
   onBeforeClose: (cb) => subscribe('app:before-close', cb),
   closeNow: () => ipcRenderer.invoke('app:close-now'),
+  cancelClose: () => ipcRenderer.invoke('app:cancel-close'),
   onTranscribeProgress: (cb) => subscribe('transcribe:progress', cb),
   onExportProgress: (cb) => subscribe('export:progress', cb),
   onMenuCommand: (cb) => subscribe('menu:command', cb),

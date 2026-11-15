@@ -155,7 +155,11 @@ Speech models download on first use into the app's data folder (`~/Library/Appli
 
 ```bash
 npm test
+npm run lint
+npm run test:e2e
 ```
+
+`test:e2e` drives the real app with Playwright on generated fixtures in a temporary folder (about 15 s); it never touches your own projects or settings.
 
 ## Layout
 
@@ -165,6 +169,12 @@ npm test
 - `src/preload.js`: the small API the page is allowed to call
 - `src/stock.js`: Pexels search and download
 - `src/renderer/`: the editor page; `edits.js` holds the pure cut and time-mapping logic, `captions.js` caption styles and the ASS subtitle writer (shared with export), `timeline.js` the timeline panel, `panels.js` the Captions and Media sidebar
+- `src/renderer/app.js`: the editor's state, undo, `refresh()` and the wiring between the modules below. Each module exports `create(deps)`; app.js creates them in dependency order and passes in what they share:
+  - `preview.js` (frame layout, overlays, captions and audio in step with the video), `transcript-view.js` and `transcript-input.js` (drawing the transcript; mouse and caret)
+  - `edit-commands.js` (cut, restore, correct, fillers, retakes, pauses, insert media), `find-replace.js`, `speakers-ui.js`
+  - `item-inspector.js`, `text-editor.js`, `canvas-controller.js` (dragging on the video, crop), `ai-tools.js`
+  - `project-flows.js` (open, transcribe, home, save, rename), `export-dialog.js`, `keys-dialog.js`, `engine-options.js`, `file-drop.js`
+  - `workspace.js` (layouts, resizable timeline), `timeline-tools.js`, `platform-text.js` (Ctrl vs ⌘, phone wording)
 - `scripts/build-whisper.sh`: builds the whisper.cpp engine
 
 ## Notes

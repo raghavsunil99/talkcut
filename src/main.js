@@ -14,7 +14,7 @@ const { transcribe, LANGUAGES, MODELS, CLOUD_QUALITY } = require('./transcribe')
 const { transcribeCloud, usage: elevenLabsUsage } = require('./cloud');
 const stock = require('./stock');
 const { createKeystore } = require('./keystore');
-const { createProjects } = require('./projects');
+const { createProjects, openFields, missingTrackFiles, relinkTracks } = require('./projects');
 const Captions = require('./renderer/captions');
 const Edits = require('./renderer/edits');
 const Frame = require('./renderer/frame');
@@ -24,7 +24,6 @@ const MEDIA_EXTENSIONS = ['mp4', 'mov', 'm4v', 'mkv', 'webm', 'mp3', 'wav', 'm4a
 const BROLL_VIDEO = ['mp4', 'mov', 'm4v', 'webm', 'mkv'];
 const BROLL_IMAGE = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const AUDIO_FILES = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'aiff'];
-const PROJECT_EXTENSION = 'talkcut';
 const RENDERER_URL = pathToFileURL(path.join(__dirname, 'renderer', 'index.html')).toString();
 
 // Speech models are large (0.5–1 GB each): reuse ones a development copy already downloaded.
@@ -85,10 +84,24 @@ function createWindow() {
       event.preventDefault();
       closingAfterSave = true;
       mainWindow.webContents.send('app:before-close');
-      setTimeout(() => { if (mainWindow) { projectDirty = false; mainWindow.close(); } }, 5000);
+      // The page answers in well under a second. If it never does, or its save failed, ask
+      // rather than close on the user's last changes.
+      closeTimer = setTimeout(() => {
+        if (!mainWindow) return;
+        const quit = dialog.showMessageBoxSync(mainWindow, {
+          type: 'warning',
+          buttons: ['Keep Open', 'Quit Without Saving'],
+          defaultId: 0,
+          cancelId: 0,
+          message: 'Talkcut could not finish saving.',
+          detail: 'Your last changes may be lost if you quit now.',
+        }) === 1;
+        if (quit) closeAfterSave(); else cancelClose();
+      }, 15000);
       return;
     }
-    if (closingAfterSave) return;
+    // A second close while the save is running waits for it instead of cutting it short.
+    if (closingAfterSave) { event.preventDefault(); return; }
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'warning',
       buttons: ['Discard Changes', 'Cancel'],
@@ -106,6 +119,24 @@ function createWindow() {
 let projectDirty = false;
 let projectHasFile = false;
 let closingAfterSave = false;
+let closeTimer = null;
+// ⌘Q: the window's close waits for the save, which cancels the quit; quit again once it closes.
+let quitting = false;
+app.on('before-quit', () => { quitting = true; });
+
+function cancelClose() {
+  clearTimeout(closeTimer);
+  closeTimer = null;
+  closingAfterSave = false;
+  quitting = false;
+}
+
+function closeAfterSave() {
+  clearTimeout(closeTimer);
+  projectDirty = false;
+  mainWindow?.close();
+  if (quitting) app.quit();
+}
 
 // Only our own renderer page may call privileged handlers.
 // Windows file URLs can differ in letter case and escaping (file:///C:/... vs file:///c:/...).
@@ -147,10 +178,8 @@ handle('project:set-dirty', (_event, dirty, hasFile) => {
   projectDirty = dirty === true;
   projectHasFile = hasFile === true;
 });
-handle('app:close-now', () => {
-  projectDirty = false;
-  mainWindow?.close();
-});
+handle('app:cancel-close', () => cancelClose());
+handle('app:close-now', () => closeAfterSave());
 
 handle('media:open-path', async (_event, filePath) => {
   const ext = path.extname(filePath ?? '').slice(1).toLowerCase();
@@ -391,6 +420,11 @@ const EXPORT_PRESETS = {
 };
 const QUALITY_CRF = { high: 17, standard: 21, small: 26 };
 
+// A moved or deleted file on a track should say which one, not just "ENOENT".
+const requireFile = (filePath) => fs.access(filePath).catch(() => {
+  throw new Error(`The file “${path.basename(filePath)}” used on a track can't be found. It may have been moved or deleted. Remove it from the timeline, or reopen the project to locate it.`);
+});
+
 handle('media:export', async (_event, { media, ranges, overlays = [], audio = [], captions = null, clip: editedClip = null, preset: presetId = 'edited', quality = null, subtitles = null }) => {
   const preset = EXPORT_PRESETS[presetId] ?? EXPORT_PRESETS.edited;
   const clip = preset.canvas ? { ...(editedClip || {}), canvas: preset.canvas } : editedClip;
@@ -443,7 +477,7 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
       for (const o of overlays) {
         const ext = path.extname(o.path ?? '').slice(1).toLowerCase();
         if (![...BROLL_VIDEO, ...BROLL_IMAGE].includes(ext)) continue;
-        await fs.access(o.path);
+        await requireFile(o.path);
         const kind = BROLL_IMAGE.includes(ext) ? 'image' : 'video';
         const hasAudio = kind === 'video' && (o.volume ?? 0) > 0 ? (await probe(o.path)).hasAudio : false;
         checked.push({ path: o.path, kind, start: o.start, end: o.end, offset: o.offset ?? 0, box: o.box, opacity: o.opacity, volume: o.volume, hasAudio, fit: o.fit, fadeIn: o.fadeIn ?? 0, fadeOut: o.fadeOut ?? 0 });
@@ -453,7 +487,7 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
     for (const a of audio) {
       const ext = path.extname(a.path ?? '').slice(1).toLowerCase();
       if (![...AUDIO_FILES, ...BROLL_VIDEO].includes(ext)) continue;
-      await fs.access(a.path);
+      await requireFile(a.path);
       sounds.push({ path: a.path, start: a.start, end: a.end, offset: a.offset ?? 0, volume: a.volume ?? 1, duck: a.duck !== false });
     }
     await renderEdit({
@@ -577,16 +611,7 @@ async function openPayload(filePath, project) {
   return {
     filePath,
     media,
-    words: project.words,
-    deleted: project.deleted ?? [],
-    cutGaps: project.cutGaps ?? [],
-    language: project.language ?? null,
-    captions: project.captions ?? null,
-    clip: project.clip ?? null,
-    splits: project.splits ?? [],
-    rangeCuts: project.rangeCuts ?? [],
-    tracks: project.tracks ?? null,
-    extras: project.extras ?? null,
+    ...openFields(project),
     // B-roll whose file has gone missing is dropped rather than failing the whole project.
     broll: (await Promise.all((project.broll ?? []).map(async (b) => {
       try {
@@ -596,6 +621,34 @@ async function openPayload(filePath, project) {
       }
     }))).filter(Boolean),
   };
+}
+
+// B-roll, photos and music on tracks that were moved or deleted: offer to locate each one.
+async function relinkMissingTrackFiles(target, project) {
+  const missing = await missingTrackFiles(project.tracks);
+  let changed = false;
+  for (const m of missing) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['Locate…', 'Skip', 'Skip All'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `Can’t find “${m.name}”, used on a track.`,
+      detail: `It may have been moved or renamed. It was at:\n${m.path}\n\nIf you skip it, it stays on the timeline but will not show or play until you locate it, and export will stop with a message.`,
+    });
+    if (response === 2) break;
+    if (response !== 0) continue;
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: `Locate ${m.name}`,
+      defaultPath: path.dirname(m.path),
+      properties: ['openFile'],
+      filters: [{ name: 'Video, image and audio', extensions: [...BROLL_VIDEO, ...BROLL_IMAGE, ...AUDIO_FILES] }],
+    });
+    if (canceled || !filePaths[0]) continue;
+    project.tracks = relinkTracks(project.tracks, m.path, filePaths[0]);
+    changed = true;
+  }
+  if (changed) await projects.save(target, project);
 }
 
 // Open a project; if its video was moved or renamed, ask the user to find it.
@@ -634,6 +687,7 @@ handle('project:open', async (_event, { filePath } = {}) => {
     project.media = { ...project.media, path: filePaths[0], name: path.basename(filePaths[0]) };
     await projects.save(target, project);
   }
+  await relinkMissingTrackFiles(target, project);
   await remember(target, project);
   return openPayload(target, project);
 });
@@ -758,9 +812,12 @@ app.on('open-file', (event, filePath) => {
 app.whenReady().then(() => {
   buildMenu();
   createWindow();
+  // The page is ready here, though isLoading() can still be true, so send the file directly
+  // (going through openPathInWindow would queue it again and then drop it).
   mainWindow.webContents.once('did-finish-load', () => {
-    if (pendingOpenPath) openPathInWindow(pendingOpenPath);
+    const filePath = pendingOpenPath;
     pendingOpenPath = null;
+    if (filePath) send('media:open-path', path.resolve(filePath));
   });
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
