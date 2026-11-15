@@ -193,15 +193,16 @@
       this.statusEl.hidden = !text;
     }
 
-    setEdits({ words, deleted, cutGaps, selection, gapSel, rangeCuts }) {
+    setEdits({ words, deleted, cutGaps, selection, gapSel, rangeCuts, order = null }) {
       if (rangeCuts) this.rangeCuts = rangeCuts;
+      this.order = order;
       if (words) this.words = words;
       this.deleted = deleted;
       this.cutGaps = cutGaps;
       this.selection = selection;
       this.gapSel = gapSel;
-      this.cuts = E.computeCuts(this.words, deleted, this.duration, cutGaps, this.rangeCuts);
-      this.kept = E.keptRanges(this.cuts, this.duration);
+      this.cuts = E.computeCuts(this.words, deleted, this.duration, cutGaps, this.rangeCuts, order);
+      this.kept = E.keptRanges(this.cuts, this.duration, order);
       this.layoutSoon();
     }
 
@@ -255,7 +256,7 @@
         const [from, to] = this.visibleWindow();
         this.captionSpans.forEach((span, n) => {
           const x0 = ed(span.start) * this.pps;
-          const x1 = ed(span.end) * this.pps;
+          const x1 = ed(span.end, true) * this.pps;
           if (x1 - x0 < 1 || x1 < from || x0 > to) return;
           const el = document.createElement('div');
           el.className = 'tl-cap';
@@ -404,7 +405,7 @@
       this.words.forEach((w, i) => {
         if (this.deleted.has(i)) return;
         const x0 = edStart(w.start) * pps;
-        const x1 = edEnd(Math.max(w.end, w.start + 0.05)) * pps;
+        const x1 = edEnd(Math.max(w.end, w.start + 0.05), true) * pps;
         if (x1 < from || x0 > to) return;
         const chip = document.createElement('div');
         chip.className = 'tl-chip word';
@@ -417,9 +418,9 @@
         frag.appendChild(chip);
       });
       const edGap = E.editedMapper(this.kept);
-      for (const gap of E.gaps(this.words, this.duration)) {
+      for (const gap of E.gaps(this.words, this.duration, undefined, this.order)) {
         const x0 = edGap(gap.start) * pps;
-        const x1 = edGap(gap.end) * pps;
+        const x1 = edGap(gap.end, true) * pps;
         if (x1 < from || x0 > to) continue;
         const seconds = (x1 - x0) / pps;
         if (seconds < 0.05) continue; // the pause went with a cut word
@@ -634,7 +635,7 @@
       const top = this.rows.film[0];
       const bottom = this.rows.wave[1];
       const sel = this.rangeDraft
-        ?? (this.rangeSel ? [E.toEdited(this.kept, this.rangeSel[0]), E.toEdited(this.kept, this.rangeSel[1])] : null);
+        ?? (this.rangeSel ? [E.toEdited(this.kept, this.rangeSel[0]), E.toEdited(this.kept, this.rangeSel[1], true)] : null);
       if (sel) {
         const x0 = Math.min(sel[0], sel[1]) * this.pps - left;
         const x1 = Math.max(sel[0], sel[1]) * this.pps - left;
@@ -782,7 +783,7 @@
           const [a, b] = this.rangeDraft;
           this.rangeDraft = null;
           if (Math.abs(b - a) < 0.05) { this.draw(); this.onSeek(E.toSource(this.kept, a)); return; }
-          this.onSelectRange(E.toSource(this.kept, Math.min(a, b)), E.toSource(this.kept, Math.max(a, b)));
+          this.onSelectRange(...E.sourceSpan(this.kept, Math.min(a, b), Math.max(a, b), Boolean(this.order)));
         });
         return;
       }

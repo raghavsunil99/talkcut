@@ -57,9 +57,19 @@
     const labels = [];
     const inputs = [];
     const sec = (t) => Math.max(0, t).toFixed(6);
-    const size = GROUP;
-    for (let g = 0; g * size < ranges.length; g++) {
-      const group = ranges.slice(g * size, (g + 1) * size);
+    // A group is a run of ranges that go forward in the file. A range that jumps back (words
+    // moved earlier in the edit) starts a new group with its own seek.
+    const groups = [];
+    for (const range of ranges) {
+      const cur = groups[groups.length - 1];
+      if (cur && cur.length < GROUP && range[0] >= cur[cur.length - 1][1]) cur.push(range);
+      else groups.push([range]);
+    }
+    let done = 0;
+    for (let g = 0; g < groups.length; g++) {
+      const group = groups[g];
+      const base = done;
+      done += group.length;
       // Start reading a second (of whole frames) before the group, so times stay on the frame grid.
       const lead = Math.round(rate.value) * frame;
       const from = Math.max(0, hasVideo ? Math.round((group[0][0] - lead) * rate.value) * frame : group[0][0] - 1);
@@ -71,7 +81,7 @@
       if (hasVideo) parts.push(`[${g}:v]fps=${rate.text},${SQUARE}${fan('split')}`);
       if (hasAudio) parts.push(`[${g}:a]anull${fan('asplit')}`);
       group.forEach(([start, end], k) => {
-        const i = g * size + k;
+        const i = base + k;
         // After the fps filter, times count in whole frames, and trim rounds these to the nearest.
         if (hasVideo) parts.push(`[s${g}_${k}]trim=start=${sec(start - from)}:end=${sec(end - from)},setpts=PTS-STARTPTS[v${i}]`);
         if (hasAudio) {

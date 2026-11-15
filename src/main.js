@@ -502,7 +502,8 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
         language: captions.language,
         width: frame.w,
         height: frame.h,
-        toEdited: (t) => Edits.toEdited(ranges, t),
+        toEdited: (t, end) => Edits.toEdited(ranges, t, end),
+        ends: captions.ends ?? null,
       }));
       fontsDir = await prepareFontsDir(path.join(work, 'fonts'));
     }
@@ -717,7 +718,7 @@ handle('project:open', async (_event, { filePath } = {}) => {
     if (canceled || !filePaths[0]) return null;
     target = filePaths[0];
   }
-  const project = await projects.load(target);
+  const project = await projects.open(target);
   const present = await fs.access(project.media.path).then(() => true, () => false);
   if (!present) {
     const { response } = await dialog.showMessageBox(mainWindow, {

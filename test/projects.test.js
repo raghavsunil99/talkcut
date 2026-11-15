@@ -37,7 +37,7 @@ test('save writes atomically and load validates', async () => {
     await projects.save(p, sample);
     assert.ok(!fs.existsSync(`${p}.saving`));
     const back = await projects.load(p);
-    assert.equal(back.version, 2);
+    assert.equal(back.version, 3);
     assert.equal(back.media.path, '/videos/clip.mov');
     fs.writeFileSync(path.join(root, 'bad.cutline'), '{nope');
     await assert.rejects(projects.load(path.join(root, 'bad.cutline')), /not a Talkcut project/);

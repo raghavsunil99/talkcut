@@ -241,7 +241,11 @@
     function updatePlayhead() {
       syncEnhanced();
       if (bgVideo && !bgVideo.hidden) syncBackgroundVideo();
-      const t = els.video.currentTime;
+      let t = els.video.currentTime;
+      // A jump lands on a frame boundary, which can be a moment before the piece being played;
+      // that moment belongs to another part of the edit, so hold the playhead at the piece's start.
+      const playing = state.kept[state.playK];
+      if (playing && t < playing[0] && t > playing[0] - 0.1) t = playing[0];
       const e = E.toEdited(state.kept, t);
       els.timeCurrent.textContent = fmtTenths(e);
       if (hasProject()) timeline.setTime(t, !els.video.paused);

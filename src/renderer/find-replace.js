@@ -115,7 +115,7 @@
       const from = $('find-text').value.trim();
       const to = $('find-replace').value.trim();
       if (!from || !to) { $('find-count').textContent = 'Type both the wrong text and the right text.'; return; }
-      const r = E.replaceAll(state.words, state.deleted, state.cutGaps, from, to);
+      const r = E.replaceAll(state.words, state.deleted, state.cutGaps, from, to, state.ends);
       if (!r.count) return;
       if ($('find-remember').checked) {
         saveWordList([...wordList().filter(([f]) => f.toLowerCase() !== from.toLowerCase()), [from, to]]);

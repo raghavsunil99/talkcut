@@ -1,12 +1,18 @@
 // Mouse and caret in the transcript: click, drag and Shift-click to select, speaker labels, cut markers, arrow keys.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
-  function create({ $, els, state, getSpans, wordIndexFrom, selectionRange, setSelection, clearSelection, visibleFrom, visibleBefore, showSpeakerMenu, labelRange, restoreRun, beginEdit, seek, keepVisible }) {
+  function create({ $, els, state, moveSelection, getSpans, wordIndexFrom, selectionRange, setSelection, clearSelection, visibleFrom, visibleBefore, showSpeakerMenu, labelRange, restoreRun, beginEdit, seek, keepVisible }) {
     // ---------- transcript: cursor, selection, typing ----------
 
     let dragging = false;
     let dragMoved = false;
     let dragFrom = -1;
+    // Dragging selected words to a new place: { x, y, moving, dest }.
+    let moveDrag = null;
+
+    function clearDropMark() {
+      els.transcript.querySelectorAll('.drop-before, .drop-after').forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+    }
 
 
     // Clicking a word puts the cursor before or after it, depending on which half was clicked.
@@ -43,11 +49,34 @@
         setSelection(from < 0 ? i : from, i);
         return;
       }
+      dragFrom = i;
+      // Pressing on the selection may start dragging it somewhere else; a plain click on it is
+      // handled on release.
+      const sel = selectionRange();
+      if (sel && i >= sel[0] && i <= sel[1]) {
+        moveDrag = { x: e.clientX, y: e.clientY, moving: false, dest: null, caret: caretFromPoint(i, e.clientX) };
+        return;
+      }
       dragging = true;
       dragMoved = false;
-      dragFrom = i;
       state.caret = caretFromPoint(i, e.clientX);
       setSelection(-1, -1);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!moveDrag) return;
+      if (!moveDrag.moving && Math.hypot(e.clientX - moveDrag.x, e.clientY - moveDrag.y) < 5) return;
+      moveDrag.moving = true;
+      els.transcript.classList.add('moving-words');
+      clearDropMark();
+      const i = wordIndexFrom(e.target);
+      moveDrag.dest = null;
+      if (i < 0) return;
+      const sel = selectionRange();
+      const dest = caretFromPoint(i, e.clientX);
+      if (sel && dest >= sel[0] && dest <= sel[1] + 1) return; // dropping on itself does nothing
+      moveDrag.dest = dest;
+      getSpans()[i].classList.add(dest === i ? 'drop-before' : 'drop-after');
     });
 
     els.transcript.addEventListener('mousemove', (e) => {
@@ -60,6 +89,21 @@
     });
 
     window.addEventListener('mouseup', () => {
+      if (moveDrag) {
+        const drag = moveDrag;
+        moveDrag = null;
+        clearDropMark();
+        els.transcript.classList.remove('moving-words');
+        if (drag.moving) {
+          if (drag.dest != null) moveSelection(drag.dest);
+        } else {
+          // A plain click on the selection: put the cursor there, like any other click.
+          state.caret = drag.caret;
+          setSelection(-1, -1);
+          if (dragFrom >= 0) seek(state.words[dragFrom].start);
+        }
+        return;
+      }
       if (!dragging) return;
       dragging = false;
       // A plain click moves the cursor and the playhead to that word.

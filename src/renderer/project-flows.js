@@ -13,6 +13,9 @@
       state.speakers = {};
       state.deleted = new Set();
       state.cutGaps = new Set();
+      state.order = null;
+      state.playK = -1;
+      state.clipboard = null;
       state.splits = [];
       state.rangeCuts = [];
       state.rangeSel = null;
@@ -162,10 +165,11 @@
       const { words, language } = result;
       if (!words.length) throw new Error('No speech was found in this file.');
       const labelled = CutlineSpeakers.fromTranscript(E.applyWordList(words, wordList()));
-      state.words = labelled.words;
+      state.words = E.ensureIds(labelled.words);
       state.speakers = labelled.speakers;
       state.deleted = new Set();
       state.cutGaps = new Set();
+      state.order = null;
       state.language = language;
       state.textVersion++;
       panels.setLanguage(language);
@@ -324,7 +328,9 @@
         home.hide();
         resetFor(project.media);
         const valid = (i, min) => Number.isInteger(i) && i >= min && i < project.words.length;
-        state.words = project.words;
+        state.words = E.ensureIds(project.words);
+        const order = E.normalizeOrder(project.order, project.media.duration || 0);
+        state.order = E.isIdentity(order, project.media.duration || 0) ? null : order;
         state.speakers = project.speakers && typeof project.speakers === 'object' ? project.speakers : {};
         state.language = project.language;
         state.deleted = new Set(project.deleted.filter((i) => valid(i, 0)));
@@ -363,6 +369,7 @@
         speakers: state.speakers,
         deleted: [...state.deleted].sort((a, b) => a - b),
         cutGaps: [...state.cutGaps].sort((a, b) => a - b),
+        order: state.order,
         splits: state.splits,
         rangeCuts: state.rangeCuts,
         captions: state.captions,

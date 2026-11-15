@@ -349,6 +349,7 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Sonnet 5.5
 
 #### 2.2 Sarvam engine
+**Status: skipped for now (your decision, 15 November 2026).** Not started. The benchmark in 2.1 has a marked place for it if it comes back.
 1. **Why:** it is the engine built for these languages. Built from scratch, as you confirmed.
 2. **Files:** new `src/sarvam.js`, `src/keystore.js` (`SERVICES`), `src/main.js` (`media:transcribe`, `VERIFY`), `src/transcribe.js` (`CLOUD_QUALITY`), the engine dialog in `index.html` and `app.js`, new `test/sarvam.test.js`.
 3. **Approach:**
@@ -362,6 +363,13 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Opus 5.5
 
 #### 2.3 Rearrangeable edit model
+**Status: done except the second source file, which is not started.** Words can be moved: ⌘X then ⌘V at the text cursor, or drag a selection to a new place. Preview, captions, tracks, the timeline, subtitle files and the export all follow the new order.
+- **Model.** A project now has `order`: the pieces of the recording in play order (`[[start, end]]` in source seconds, `null` for straight through). `words` is always in the order shown and played. Cuts stay in source time and apply inside each piece, so every existing cut, pause and range tool works unchanged on moved words. `toEdited`, `toSource`, `wordAt` and the caption search no longer assume time order. A time that sits exactly on a join belongs to two places; `toEdited(kept, t, true)` asks for it as an end.
+- **Deviation from the approach below.** Words have stable ids (used by cut and paste to find words again, and saved in the file), but cuts and selections are still kept by word index and remapped when words move, because that left the 60 or so places that walk index ranges alone. Track items needed no change: they were already anchored to source time, so they travel with their words.
+- **Copy and paste.** ⌘C copies the text. Pasting moves words that were cut; it does not duplicate speech, because one stretch of recording playing in two places breaks the one-to-one mapping everything else relies on.
+- **Limits.** Correcting text, or find and replace, across a join is refused (each side on its own works). A time range dragged on the timeline stops at a join. The Android bundle was not updated or run.
+- **Project files.** Version 3. A version 2 file is copied to `<name>.talkcut.v2.bak` beside it on first open, then rewritten as version 3. Talkcut 1.0.3 can open a version 3 file but ignores `order`, so a reordered project would show wrong there.
+- **Checked by.** `test/reorder.test.js` (21 tests: moves, remapping, a property test of `toSource(toEdited(t)) == t` over random moves and cuts, playback stepping, captions at joins, a real export whose picture order is checked, the version 2 upgrade) and `test/e2e/reorder.e2e.js` (cut and paste a sentence to the start, then real playback sampled from the video element, export, undo, redo, reopen; drag to move; version 2 upgrade). Not checked by ear: the sound at a backward jump in the preview is detected up to a frame late, the same as at a cut.
 1. **Why:** moving a sentence, and joining two recordings, are the main Descript behaviours Talkcut cannot do.
 2. **Files:** `edits.js` (new segment list beside `keptRanges`, `toEdited`, `toSource`), `tracks.js` (anchoring), `captions.js`, `render-plan.js`, `timeline.js`, `store.js` and `transcript-view.js`, `projects.js` (version 3 and migration), `main.js`.
 3. **Approach:**

@@ -1,7 +1,7 @@
 // Edit commands: cut and restore words, pauses, ranges and items; correct text; remove fillers and retakes; shorten pauses; insert media.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
-  function create({ $, els, state, E, T, getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast }) {
+  function create({ $, els, state, E, T, setSelection, getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast }) {
     function cutSelection({ restore: restoreSel = false, toggle = false } = {}) {
       if (!hasProject()) return;
       if (state.rangeSel && !restoreSel) {
@@ -71,6 +71,9 @@
       for (let i = from; i <= to; i++) {
         if (state.deleted.has(i)) { toast('Restore the cut words in this selection before correcting it.'); return; }
       }
+      // Corrected words share the time of the words they replace, which must be one stretch
+      // of the recording.
+      if (state.ends && state.ends[from] !== state.ends[to]) { toast('This selection runs across a place where words were moved. Correct each side on its own.'); return; }
       const first = getSpans()[from];
       if (!first) return;
       els.video.pause();
@@ -92,7 +95,7 @@
         done = true;
         const text = editor.textContent;
         if (save && text.trim() !== state.words.slice(from, to + 1).map((w) => w.text).join(' ')) {
-          const r = E.replaceWords(state.words, state.deleted, state.cutGaps, from, to, text);
+          const r = E.replaceWords(state.words, state.deleted, state.cutGaps, from, to, text, state.ends ? state.ends[to] : Infinity);
           state.anchor = state.focus = -1;
           state.caret = from + (text.trim() ? text.trim().split(/\s+/).length : to - from + 1);
           commit(r);
@@ -143,7 +146,7 @@
     }
 
     function shortenPauses() {
-      const long = E.gaps(state.words, duration(), 1.0).filter((g) => !state.cutGaps.has(g.i));
+      const long = E.gaps(state.words, duration(), 1.0, state.order).filter((g) => !state.cutGaps.has(g.i));
       if (!long.length) {
         toast('No pauses longer than 1 second to shorten.');
         return;
@@ -188,7 +191,77 @@
       if (!audio) openRailPanel('properties');
     }
 
-    return { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia };
+    // ---------- moving words ----------
+
+    // Move the selected words so they come before the word at `dest` (words.length: to the end).
+    // The recording under them moves too, so preview and export play them in the new place.
+    function moveSelection(dest, range = selectionRange()) {
+      if (!hasProject() || state.busy || !range) return false;
+      const r = E.moveWords(state.words, state.deleted, state.cutGaps, state.order, duration(), range[0], range[1], dest);
+      if (!r) return false;
+      const order = E.isIdentity(r.order, duration()) ? null : r.order;
+      commit({ words: r.words, deleted: r.deleted, cutGaps: r.cutGaps, order });
+      state.caret = null;
+      setSelection(r.from, r.to);
+      return true;
+    }
+
+    const selectedText = (sel) => state.words.slice(sel[0], sel[1] + 1).filter((_, k) => !state.deleted.has(sel[0] + k)).map((w) => w.text.trim()).join(' ');
+
+    // ⌘C: the text of the selection, for the system clipboard.
+    function copyWords() {
+      const sel = selectionRange();
+      return sel ? selectedText(sel) : null;
+    }
+
+    // ⌘X: cut the selected words and remember them, so ⌘V can put them somewhere else.
+    function cutWords() {
+      const sel = selectionRange();
+      if (!sel || !hasProject()) return null;
+      const text = selectedText(sel);
+      const ids = [];
+      const restore = [];
+      for (let i = sel[0]; i <= sel[1]; i++) {
+        ids.push(state.words[i].id);
+        if (!state.deleted.has(i)) restore.push(state.words[i].id);
+      }
+      if (!restore.length) return null;
+      state.clipboard = { ids, restore };
+      cutSelection();
+      toast(`Cut ${restore.length} word${restore.length === 1 ? '' : 's'}. Click where they should go and press ⌘V to move them there.`, { ms: 5000 });
+      return text;
+    }
+
+    // ⌘V: move the words cut with ⌘X to the text cursor and bring them back.
+    function pasteWords() {
+      if (!hasProject() || state.busy) return false;
+      const clip = state.clipboard;
+      if (!clip) { toast('Nothing to paste. Select words and press ⌘X first; ⌘V then moves them to the cursor. (Copying speech to a second place is not supported.)', { ms: 6000 }); return false; }
+      const sel = selectionRange();
+      const dest = state.caret ?? (sel ? sel[0] : null);
+      if (dest == null) { toast('Click in the transcript where the words should go, then press ⌘V.'); return false; }
+      const index = new Map(state.words.map((w, i) => [w.id, i]));
+      const at = clip.ids.map((id) => index.get(id)).filter((i) => i != null).sort((a, b) => a - b);
+      const from = at[0];
+      const to = at[at.length - 1];
+      if (!at.length || to - from + 1 !== at.length) { state.clipboard = null; toast('The words you cut have changed since. Select them and press ⌘X again.'); return false; }
+      let r = { words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, order: state.order, from, to };
+      if (dest < from || dest > to + 1) {
+        r = E.moveWords(state.words, state.deleted, state.cutGaps, state.order, duration(), from, to, dest);
+        if (!r) { toast('These words cannot be moved there.', { error: true }); return false; }
+      }
+      const back = new Set(clip.restore);
+      const deleted = new Set(r.deleted);
+      for (let i = r.from; i <= r.to; i++) if (back.has(r.words[i].id)) deleted.delete(i);
+      state.clipboard = null;
+      commit({ words: r.words, deleted, cutGaps: r.cutGaps, order: E.isIdentity(r.order, duration()) ? null : r.order });
+      state.caret = null;
+      setSelection(r.from, r.to);
+      toast(`Moved ${back.size} word${back.size === 1 ? '' : 's'}. Press ⌘Z to undo.`);
+      return true;
+    }
+
+    return { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia, moveSelection, cutWords, copyWords, pasteWords };
   }
 
   root.CutlineEditCommands = { create };
