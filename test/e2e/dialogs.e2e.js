@@ -119,3 +119,25 @@ test('the project is renamed by editing its title', TIMEOUT, () => withProject(a
   assert.equal(fs.existsSync(require('node:path').join(projects, 'Demo.talkcut')), false);
   assert.equal(await title.textContent(), 'My Reel');
 }));
+
+test('remove fillers, remove retakes and correct a word', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  const text = ['So', 'um', 'I', 'went', 'to', 'the', 'I', 'went', 'to', 'the', 'market'];
+  const words = text.map((t, i) => ({ text: t, start: 0.2 + i * 0.55, end: 0.6 + i * 0.55 }));
+  await withProjectIn(dir, { words }, async ({ page, file }) => {
+    await page.click('.rail-btn[data-panel="ai"]');
+    await page.click('#btn-fillers');
+    await H.until(() => H.readProject(file).deleted.join() === '1', 'the filler cut');
+    // The first "I went to the" is the earlier take; the last one is kept.
+    await page.click('#btn-retakes');
+    await H.until(() => H.readProject(file).deleted.join() === '1,2,3,4,5', 'the retake cut');
+
+    await page.locator('#transcript .w[data-i="10"]').dblclick();
+    await page.locator('#transcript .editing').waitFor();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.type('bazaar');
+    await page.keyboard.press('Enter');
+    await H.until(() => H.readProject(file).words[10].text === 'bazaar', 'the correction');
+    assert.equal(H.readProject(file).words.length, 11, 'correcting text does not cut anything');
+  });
+});
