@@ -132,9 +132,8 @@
     nowIndex: -1,
     loadToken: 0,
   };
-  let spans = []; // word index -> visible span (null for cut words)
-  // Modules get the current list through this; renderTranscript() replaces the array.
-  const getSpans = () => spans;
+  // Word spans of the drawn transcript (transcript-view.js replaces the array on each redraw).
+  const getSpans = () => mod.transcript?.getSpans() ?? [];
   const getCanvasEditor = () => canvasEditor;
   // The caption preview redraws only when its key changes; this forces the next redraw.
   const resetCaptionCache = () => mod.preview?.resetCaptionCache();
@@ -142,7 +141,6 @@
   // here, because refresh() can run before a module exists.
   const mod = {};
   let canvasEditor = null; // created with the canvas section below
-  let renderedVersion = -1;
   const languageNames = {};
 
   // ---------- helpers ----------
@@ -281,7 +279,7 @@
       if (shift && state.anchor >= 0) setSelection(state.anchor, i);
       else setSelection(i);
       seek(state.words[i].start);
-      keepVisible(spans[i]);
+      keepVisible(getSpans()[i]);
     },
     onSelectGap: (i) => {
       state.anchor = state.focus = -1;
@@ -357,93 +355,11 @@
 
   // ---------- rendering ----------
 
-  // The transcript reads like a document: cut words disappear, leaving a small marker that
-  // shows what was cut and restores it on click.
-  function renderTranscript() {
-    els.transcript.textContent = '';
-    $('no-transcript').hidden = state.words.length > 0;
-    $('btn-speakers').hidden = !state.words.length;
-    spans = new Array(state.words.length).fill(null);
-    const fillers = new Set(E.fillerIndices(state.words));
-    let para = document.createElement('p');
-    let run = null; // open marker for consecutive cut words
-    // With speakers, each change of speaker starts a paragraph headed by their name.
-    const labels = Object.keys(state.speakers).length > 0;
-    let paraSpeaker;
-    const label = (id) => {
-      const el = document.createElement('span');
-      el.className = 'speaker-label';
-      el.dataset.speaker = id ?? '';
-      el.textContent = id != null ? state.speakers[id] ?? 'Speaker' : 'Unlabelled';
-      return el;
-    };
-    state.words.forEach((w, i) => {
-      const prev = state.words[i - 1];
-      const gap = prev ? w.start - prev.end : 0;
-      const sentenceEnd = prev && /[.!?।]["')\]]?$/.test(prev.text);
-      const newSpeaker = labels && prev && (w.speaker ?? null) !== (paraSpeaker ?? null);
-      if (prev && (gap > 1.6 || (sentenceEnd && gap > 0.9) || newSpeaker) && para.childNodes.length) {
-        els.transcript.appendChild(para);
-        para = document.createElement('p');
-        run = null;
-      }
-      if (labels && !para.childNodes.length) {
-        // Name the speaker when it changes (or at the very top).
-        if (i === 0 || (w.speaker ?? null) !== (paraSpeaker ?? null) || newSpeaker) para.appendChild(label(w.speaker));
-        paraSpeaker = w.speaker;
-      }
-      if (state.deleted.has(i)) {
-        if (!run) {
-          run = document.createElement('span');
-          run.className = 'del';
-          run.dataset.from = i;
-          run.textContent = '⌁';
-          if (para.childNodes.length) para.appendChild(document.createTextNode(' '));
-          para.appendChild(run);
-        }
-        run.dataset.to = i;
-        run.title = `Cut: ${state.words.slice(Number(run.dataset.from), i + 1).map((x) => x.text).join(' ')} (click to restore)`;
-        return;
-      }
-      run = null;
-      if (para.childNodes.length) para.appendChild(document.createTextNode(' '));
-      const span = document.createElement('span');
-      span.className = 'w';
-      if (fillers.has(i)) span.classList.add('filler');
-      span.dataset.i = i;
-      span.textContent = w.text;
-      para.appendChild(span);
-      spans[i] = span;
-    });
-    if (para.childNodes.length) els.transcript.appendChild(para);
-    els.docTitle.textContent = projectName();
-    els.docLanguage.textContent = languageNames[state.language] ?? state.language ?? '';
-    els.docLanguage.hidden = !state.language;
-    els.empty.hidden = true;
-    els.transcriptWrap.hidden = false;
-    renderedVersion = state.textVersion;
-    state.nowIndex = -1;
-  }
-
-  // Visible (not cut) word at or after i, or -1.
-  function visibleFrom(i) {
-    for (let k = Math.max(0, i); k < state.words.length; k++) if (!state.deleted.has(k)) return k;
-    return -1;
-  }
-
-  // Visible word before i, or -1.
-  function visibleBefore(i) {
-    for (let k = Math.min(i, state.words.length) - 1; k >= 0; k--) if (!state.deleted.has(k)) return k;
-    return -1;
-  }
-
-  function paintCaret() {
-    els.transcript.querySelectorAll('.caret-before, .caret-after').forEach((el) => el.classList.remove('caret-before', 'caret-after'));
-    if (state.caret == null || selectionRange()) return;
-    const at = visibleFrom(state.caret);
-    if (at >= 0) spans[at]?.classList.add('caret-before');
-    else spans[visibleBefore(state.words.length)]?.classList.add('caret-after');
-  }
+  mod.transcript = CutlineTranscriptView.create({ $, els, state, E, languageNames, projectName, selectionRange });
+  function renderTranscript() { mod.transcript.renderTranscript(); }
+  function visibleFrom(i) { return mod.transcript.visibleFrom(i); }
+  function visibleBefore(i) { return mod.transcript.visibleBefore(i); }
+  function paintCaret() { mod.transcript?.paintCaret(); }
 
   function refresh() {
     const d = duration();
@@ -452,8 +368,8 @@
     state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions.preset), state.words);
     resetCaptionCache();
     const sel = selectionRange();
-    if (state.media && !state.loadingMedia && renderedVersion !== state.textVersion) renderTranscript();
-    spans.forEach((span, i) => {
+    if (state.media && !state.loadingMedia && mod.transcript.needsRender()) renderTranscript();
+    getSpans().forEach((span, i) => {
       span?.classList.toggle('sel', !!sel && i >= sel[0] && i <= sel[1]);
     });
     paintCaret();
@@ -655,7 +571,7 @@
 
   // Clicking a word puts the cursor before or after it, depending on which half was clicked.
   function caretFromPoint(i, clientX) {
-    const r = spans[i].getBoundingClientRect();
+    const r = getSpans()[i].getBoundingClientRect();
     return clientX > r.left + r.width / 2 ? i + 1 : i;
   }
 
@@ -729,7 +645,7 @@
       const next = dir > 0 ? visibleFrom(base + (state.focus >= 0 ? 1 : 0)) : visibleBefore(state.focus >= 0 ? base : base + 1);
       if (anchor < 0 || next < 0) return;
       setSelection(anchor, next);
-      keepVisible(spans[next]);
+      keepVisible(getSpans()[next]);
       return;
     }
     let caret = state.caret ?? 0;
@@ -739,7 +655,7 @@
     state.caret = caret;
     setSelection(-1, -1);
     const at = visibleFrom(caret) >= 0 ? visibleFrom(caret) : visibleBefore(n);
-    if (at >= 0) { seek(state.words[at].start); keepVisible(spans[at]); }
+    if (at >= 0) { seek(state.words[at].start); keepVisible(getSpans()[at]); }
   }
 
   // ---------- keyboard ----------
