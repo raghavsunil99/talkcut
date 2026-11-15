@@ -193,7 +193,7 @@
       this.statusEl.hidden = !text;
     }
 
-    setEdits({ words, deleted, cutGaps, selection, gapSel, rangeCuts, order = null }) {
+    setEdits({ words, deleted, cutGaps, selection, gapSel, rangeCuts, order = null, gapKeep }) {
       if (rangeCuts) this.rangeCuts = rangeCuts;
       this.order = order;
       if (words) this.words = words;
@@ -201,7 +201,7 @@
       this.cutGaps = cutGaps;
       this.selection = selection;
       this.gapSel = gapSel;
-      this.cuts = E.computeCuts(this.words, deleted, this.duration, cutGaps, this.rangeCuts, order);
+      this.cuts = E.computeCuts(this.words, deleted, this.duration, cutGaps, this.rangeCuts, order, gapKeep);
       this.kept = E.keptRanges(this.cuts, this.duration, order);
       this.layoutSoon();
     }

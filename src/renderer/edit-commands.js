@@ -120,43 +120,8 @@
       selection.addRange(range);
     }
 
-    function removeFillers() {
-      const fillers = E.fillerIndices(state.words).filter((i) => !state.deleted.has(i));
-      if (!fillers.length) {
-        toast('No filler words found in the transcript.');
-        return;
-      }
-      const next = new Set(state.deleted);
-      fillers.forEach((i) => next.add(i));
-      commit({ deleted: next });
-      toast(`Cut ${fillers.length} filler word${fillers.length === 1 ? '' : 's'}. Press ⌘Z to undo.`);
-    }
-
-    function removeRetakes() {
-      const takes = E.findRetakes(state.words, state.deleted);
-      if (!takes.length) {
-        toast('No repeated takes found. Lines said again right after a pause or a false start are what this looks for.');
-        return;
-      }
-      const next = new Set(state.deleted);
-      takes.forEach((t) => t.idx.forEach((i) => next.add(i)));
-      commit({ deleted: next });
-      const words = takes.reduce((n, t) => n + t.idx.length, 0);
-      toast(`Cut ${takes.length} earlier take${takes.length === 1 ? '' : 's'} (${words} words), keeping the last one each time. Press ⌘Z to undo.`, { ms: 6000 });
-    }
-
-    function shortenPauses() {
-      const long = E.gaps(state.words, duration(), 1.0, state.order).filter((g) => !state.cutGaps.has(g.i));
-      if (!long.length) {
-        toast('No pauses longer than 1 second to shorten.');
-        return;
-      }
-      const next = new Set(state.cutGaps);
-      long.forEach((g) => next.add(g.i));
-      const saved = long.reduce((sum, g) => sum + (g.end - g.start - E.GAP_KEEP), 0);
-      commit({ cutGaps: next });
-      toast(`Shortened ${long.length} pause${long.length === 1 ? '' : 's'}, saving ${saved.toFixed(1)}s. Press ⌘Z to undo.`);
-    }
+    // Removing fillers and retakes and shortening pauses go through the review dialog
+    // (review-dialog.js), so the user sees what will be cut first.
 
     // Put a video, photo or sound at the playhead on the first free track of its kind (a new
     // track is added when they are all busy). Videos run up to 4 s, photos 3 s, sounds their
@@ -261,7 +226,7 @@
       return true;
     }
 
-    return { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia, moveSelection, cutWords, copyWords, pasteWords };
+    return { cutSelection, cutAtCaret, restoreRun, beginEdit, insertMedia, moveSelection, cutWords, copyWords, pasteWords };
   }
 
   root.CutlineEditCommands = { create };

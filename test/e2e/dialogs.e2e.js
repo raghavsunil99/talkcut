@@ -127,9 +127,11 @@ test('remove fillers, remove retakes and correct a word', TIMEOUT, async () => {
   await withProjectIn(dir, { words }, async ({ page, file }) => {
     await page.click('.rail-btn[data-panel="ai"]');
     await page.click('#btn-fillers');
+    await page.click('#review-apply');
     await H.until(() => H.readProject(file).deleted.join() === '1', 'the filler cut');
     // The first "I went to the" is the earlier take; the last one is kept.
     await page.click('#btn-retakes');
+    await page.click('#review-apply');
     await H.until(() => H.readProject(file).deleted.join() === '1,2,3,4,5', 'the retake cut');
 
     await page.locator('#transcript .w[data-i="10"]').dblclick();

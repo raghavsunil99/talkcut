@@ -104,7 +104,10 @@
       $('btn-speakers').hidden = !state.words.length;
       // The word being spoken is marked again by the next playhead update.
       if (state.nowIndex >= 0) spans[state.nowIndex]?.classList.remove('now');
-      const sameText = drawn && drawn.words === state.words && drawn.speakers === state.speakers
+      // The filler words looked for can change (in the review dialog): that redraws everything.
+      const fillerWords = state.fillerSet?.() ?? null;
+      const fillerKey = fillerWords ? [...fillerWords].sort().join('|') : '';
+      const sameText = drawn && drawn.words === state.words && drawn.speakers === state.speakers && drawn.fillerKey === fillerKey
         && els.transcript.childElementCount === drawn.paragraphs.length;
       if (sameText) {
         for (const p of drawn.paragraphs) {
@@ -117,7 +120,7 @@
       } else {
         els.transcript.textContent = '';
         spans = new Array(state.words.length).fill(null);
-        const fillers = new Set(E.fillerIndices(state.words));
+        const fillers = new Set(E.fillerIndices(state.words, fillerWords ?? undefined));
         const paragraphs = paragraphRanges();
         const frag = document.createDocumentFragment();
         for (const p of paragraphs) {
@@ -126,7 +129,7 @@
           frag.appendChild(p.el);
         }
         els.transcript.appendChild(frag);
-        drawn = { words: state.words, speakers: state.speakers, fillers, paragraphs };
+        drawn = { words: state.words, speakers: state.speakers, fillers, fillerKey, paragraphs };
       }
       els.docTitle.textContent = projectName();
       els.docLanguage.textContent = languageNames[state.language] ?? state.language ?? '';
