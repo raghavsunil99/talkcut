@@ -220,7 +220,21 @@
               <input type="range" id="prop-volume"><input type="number" id="prop-volume-num" class="text-input num"><span class="unit">%</span>
               <button type="button" class="btn ghost" id="prop-mute">Mute</button>
             </div>
-            <label class="prop-toggle"><input type="checkbox" id="prop-enhance"><span><b>Studio Sound</b> — removes background noise and hiss, quiets the gaps between words and evens out the voice.</span></label>
+            <label class="prop-toggle"><input type="checkbox" id="prop-enhance"><span><b>Studio Sound</b> — removes background noise and hiss and evens out the voice.</span></label>
+            <div class="segmented" id="prop-engine" title="Classic: the original filters. AI: RNNoise, better on hiss and fan noise; lower its strength in a room with other people talking.">
+              <button type="button" data-value="rnnoise">AI noise removal</button>
+              <button type="button" data-value="classic">Classic</button>
+            </div>
+            <div class="prop-slider" id="prop-strength-row"><span class="prop-label">Strength</span>
+              <input type="range" id="prop-strength"><input type="number" id="prop-strength-num" class="text-input num"><span class="unit">%</span>
+            </div>
+            <label class="prop-field"><span>Loudness</span>
+              <select id="prop-loudness" class="text-input">
+                <option value="">Leave as recorded</option>
+                <option value="-14">Social: −14 LUFS (Instagram, YouTube, TikTok)</option>
+                <option value="-16">Podcast: −16 LUFS</option>
+              </select>
+            </label>
           </section>
           <section class="prop-group">
             <h3>Canvas size</h3>

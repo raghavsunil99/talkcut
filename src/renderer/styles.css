@@ -937,3 +937,5 @@ body.guides-shorts .guides .safe-right { top: 34%; bottom: 19%; width: 17%; }
 .review-tag.sound { color: #7cc7ff; }
 .review-tag.retake { color: #ff7c9c; }
 .review-tag.pause { color: #9be38b; }
+#prop-strength-row.dim, #prop-engine.dim { opacity: 0.5; }
+#prop-strength-row .prop-label { font-size: 12px; color: var(--muted); min-width: 56px; }
