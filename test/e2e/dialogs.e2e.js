@@ -42,3 +42,22 @@ test('the export dialog saves captions alone as an SRT file', TIMEOUT, () => wit
   assert.match(text, /^1\n00:00:00,200 --> /);
   assert.match(text, /one two three four/);
 }));
+
+test('find and replace fixes every match, remembers the fix, and undoes', TIMEOUT, () => withProject(async ({ page }) => {
+  const word = (i) => page.locator(`#transcript .w[data-i="${i}"]`).textContent();
+  await page.click('#btn-find');
+  await page.fill('#find-text', 'two');
+  assert.equal(await page.locator('#find-count').textContent(), '1 match in the transcript');
+  await page.fill('#find-replace', 'TOO');
+  await page.check('#find-remember');
+  await page.click('#find-go');
+  await H.until(async () => (await word(1)) === 'TOO', 'the replacement');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('cutline.wordList'))), [['two', 'TOO']]);
+  await page.click('#btn-undo');
+  await H.until(async () => (await word(1)) === 'two', 'the undo');
+
+  // Right-click a word: the menu offers Correct, Cut, Find, Speaker, Play and Copy.
+  await page.locator('#transcript .w[data-i="3"]').click({ button: 'right' });
+  await page.locator('#word-menu').waitFor();
+  assert.equal(await page.locator('#word-menu li').count(), 6);
+}));

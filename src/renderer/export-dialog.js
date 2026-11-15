@@ -1,4 +1,3 @@
-/* global cutline */
 // Export dialog: presets, quality, captions burn-in and SRT/VTT, and the export itself.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {

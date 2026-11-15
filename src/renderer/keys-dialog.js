@@ -1,4 +1,3 @@
-/* global cutline */
 // API keys dialog: named keys per service, usage, add/rename/note/enable/remove.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
