@@ -502,6 +502,13 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 ### Phase 3: differentiate
 
 #### 3.1 Code-mix-aware captions
+**Status: done, with one change to the approach.**
+- **English in the Latin font** was already done in 1.8 for the export (`withFontRuns`); the preview's font stack does the same. Now checked together: in "account setup చేయడానికి" the English and the Telugu parts each start and end within a few pixels in preview and export.
+- **Measuring text by how it looks** (`visualLength` in `captions.js`). Counting letters (grapheme clusters), as planned, would have treated every script alike, but measured from the bundled fonts a Tamil or Malayalam letter is 2.3 to 2.4 times as wide as an English one, Telugu and Kannada 1.8, Bengali 1.6 and Devanagari 1.2. So each letter is weighted by its script's width (`SCRIPT_WIDTH`). Caption grouping, two-line breaks and title sizing use it; the old count of UTF-16 units was up to 22% off. English captions are unchanged.
+- **Line spacing per script.** The preview's lines are now spaced by the script font's full height, as libass spaces them (1.48 em for Telugu, 1.91 for Devanagari; it was 1.25 for all), so two-line captions match the export and tall conjuncts do not touch the line above. The preview's box padding follows.
+- **English words in their own colour** (Captions → Customize → English words): in an Indian-language caption, Latin-letter runs get a chosen colour, except on the spoken word (which takes the highlight) and in karaoke.
+- **Checked by.** `test/codemix.test.js`: the script widths measured again with libass from the bundled fonts (within 6% of the table), equal counted widths render equally wide in all seven scripts (within 10%), a Telugu, Tamil, Malayalam or Hindi caption fills to about the width of an English one, graphemes keep vowel signs and viramas, and the ASS for English runs with and without the colour. `test/e2e/codemix.e2e.js`: the acceptance line in preview and export with English in blue (whole line, English part and Telugu part each within 5% in width and 4 px in position), and a two-line Telugu caption the same height in both (it fails with the old 1.25 spacing).
+- **Not checked.** Mixed lines where the Latin font is taller than the script font (Telugu with English) use the script's line height in the preview, while libass takes the taller of the two on that line; the difference is about 3%. Bengali and Marathi captions were measured but not tried by a reader.
 1. **Why:** Telugu with English words is the normal case here and an afterthought elsewhere.
 2. **Files:** `captions.js` (`groupWords`, `buildAss`, `fontFor`), `panels.js` (`fillLine`), `text.js` (`fontPx`), `test/captions.test.js`.
 3. **Approach:**

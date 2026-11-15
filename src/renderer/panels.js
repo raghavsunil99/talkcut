@@ -9,6 +9,10 @@
   function styleLine(el, style, fontPx, language) {
     const p = C.styleOf(style);
     el.style.fontFamily = C.fontStack(language);
+    // Lines are as far apart as libass puts them: the script font's full height (C.LINE_HEIGHT).
+    // Tall Malayalam, Telugu and Devanagari letters need more room than English.
+    const lh = C.LINE_HEIGHT[C.fontFor(language)] ?? C.LINE_HEIGHT[C.LATIN_FONT];
+    el.style.lineHeight = String(lh);
     // The export draws Regular or Bold only (ASS Bold when the weight is 700 or more).
     el.style.fontWeight = p.weight >= 700 ? '700' : '400';
     el.style.fontSize = `${fontPx}px`;
@@ -20,8 +24,7 @@
     el.style.background = p.box ?? '';
     // libass draws the box 0.28 em around each line's full font height (ascent to descent of the
     // style's font, see C.LINE_HEIGHT); the line box here is 1.25 em, so pad the rest.
-    const lh = C.LINE_HEIGHT[C.fontFor(language)] ?? C.LINE_HEIGHT[C.LATIN_FONT];
-    el.style.padding = p.box ? `${((lh - 1.25) / 2 + 0.28).toFixed(3)}em 0.28em` : '0';
+    el.style.padding = p.box ? '0.28em' : '0';
     el.style.borderRadius = p.box ? '0.18em' : '0';
     el.style.boxDecorationBreak = 'clone';
     el.style.webkitBoxDecorationBreak = 'clone';
@@ -31,7 +34,7 @@
   // The words of a caption, with the spoken one highlighted. Two-line styles break at the same
   // word as the export (CutlineCaptions.breakAt). For karaoke, `fill` maps a word index to how
   // much of it is filled (0 to 1).
-  function fillLine(el, words, style, current, fill = null) {
+  function fillLine(el, words, style, current, fill = null, language = null) {
     const p = C.styleOf(style);
     el.replaceChildren();
     const at = C.breakAt(words.map((w) => w.text), p);
@@ -40,7 +43,23 @@
       else if (k) el.appendChild(document.createTextNode(' '));
       const span = document.createElement('span');
       span.className = 'cw';
-      span.textContent = C.displayText(w.text, p);
+      const shown = C.displayText(w.text, p);
+      span.textContent = shown;
+      // English words in their own colour (as the export draws them): runs inside the word.
+      const spoken = p.mode === 'highlight' && w.i === current && p.hi !== p.text;
+      if (p.latin && language && p.animation !== 'karaoke' && !spoken) {
+        const runs = C.latinRuns(shown, language);
+        if (runs.some((r) => r.latin)) {
+          span.replaceChildren(...runs.map((r) => {
+            if (!r.latin) return document.createTextNode(r.text);
+            const s = document.createElement('span');
+            s.className = 'cw-latin';
+            s.style.color = p.latin;
+            s.textContent = r.text;
+            return s;
+          }));
+        }
+      }
       if (p.animation === 'karaoke') {
         const f = Math.round(Math.min(1, Math.max(0, fill?.(w.i) ?? 0)) * 1000) / 10;
         // A copy of the word in the highlight colour lies exactly on top of it, cut off at the
@@ -166,6 +185,8 @@
       }
       $('cap-box-on').addEventListener('change', (e) => this.setStyle({ box: e.target.checked ? $('cap-box').value : null }));
       $('cap-box').addEventListener('change', (e) => { if ($('cap-box-on').checked) this.setStyle({ box: e.target.value }); });
+      $('cap-latin-on').addEventListener('change', (e) => this.setStyle({ latin: e.target.checked ? $('cap-latin').value : null }));
+      $('cap-latin').addEventListener('change', (e) => { if ($('cap-latin-on').checked) this.setStyle({ latin: e.target.value }); });
       $('cap-words').addEventListener('input', (e) => { $('cap-words-out').textContent = e.target.value; });
       $('cap-words').addEventListener('change', (e) => this.setStyle({ maxWords: Number(e.target.value) }));
       $('cap-reset-style').addEventListener('click', () => this.setCaption({ style: null }));
@@ -179,7 +200,9 @@
       const base = C.styleOf(this.captions.preset);
       const style = { ...(this.captions.style ?? {}) };
       for (const [k, v] of Object.entries(change)) {
-        const same = k === 'box' ? (v === null ? base.box === null : base.box === C.hexToRgba(v, 0.72)) : String(base[k]).toUpperCase() === String(v).toUpperCase();
+        const same = k === 'box' ? (v === null ? base.box === null : base.box === C.hexToRgba(v, 0.72))
+          : k === 'latin' ? v === null
+            : String(base[k]).toUpperCase() === String(v).toUpperCase();
         if (same) delete style[k]; else style[k] = v;
       }
       if (!final) {
@@ -283,7 +306,7 @@
         const line = b.querySelector('.caption-line');
         const p = styleLine(line, id, 19, this.language);
         const words = p.maxWords === 1 ? [sampleWords[2]] : sampleWords;
-        fillLine(line, words, id, 2);
+        fillLine(line, words, id, 2, null, this.language);
       });
       // The style controls show the current look.
       const p = C.styleOf(s);
@@ -303,6 +326,9 @@
         if (m) $('cap-box').value = `#${[m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`;
       }
       $('cap-box').disabled = !p.box;
+      $('cap-latin-on').checked = Boolean(p.latin);
+      if (p.latin) $('cap-latin').value = p.latin.toLowerCase();
+      $('cap-latin').disabled = !p.latin;
       $('cap-words').value = p.maxWords;
       $('cap-words-out').textContent = p.maxWords;
       $('cap-style-name').textContent = custom ? `${C.PRESETS[s.preset].label}, changed` : C.PRESETS[s.preset].label;

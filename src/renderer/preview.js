@@ -262,7 +262,7 @@
         const until = k === words.length - 1 ? E.toEdited(state.kept, Math.max(state.words[i].end, state.words[i].start), true) : E.toEdited(state.kept, state.words[words[k + 1]].start);
         return until > from ? (e - from) / (until - from) : (e >= from ? 1 : 0);
       } : null;
-      CutlinePanels.fillLine(line, words.map((i) => ({ text: state.words[i].text, i })), s, active.current, fill);
+      CutlinePanels.fillLine(line, words.map((i) => ({ text: state.words[i].text, i })), s, active.current, fill, state.language);
       layer.hidden = false;
     }
 
