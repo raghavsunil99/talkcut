@@ -82,6 +82,9 @@
       document.body.classList.toggle('hide-sidebar-pref', !s.sidebar);
       document.body.classList.toggle('hide-timeline', !s.timeline);
       document.body.classList.toggle('show-guides', Boolean(s.guides));
+      document.body.classList.toggle('guides-shorts', s.guidesFor === 'shorts');
+      const label = document.querySelector('.guides-label');
+      if (label) label.textContent = s.guidesFor === 'shorts' ? 'YouTube Shorts safe zone' : 'Instagram Reels safe zone';
       document.body.classList.toggle('show-grid', Boolean(s.grid));
       this.render();
       this.onLayout?.(s);
@@ -180,6 +183,14 @@
       for (const [id, key] of [['set-show-transcript', 'transcript'], ['set-show-sidebar', 'sidebar'], ['set-show-timeline', 'timeline'], ['set-guides', 'guides'], ['set-grid', 'grid']]) {
         $(id).addEventListener('change', () => this.set({ [key]: $(id).checked }));
       }
+      for (const [value, label] of [['reels', 'Reels'], ['shorts', 'Shorts']]) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.value = value;
+        b.textContent = label;
+        b.addEventListener('click', () => this.set({ guidesFor: value, guides: true }));
+        $('set-guides-for').appendChild(b);
+      }
       $('set-ask-engine').addEventListener('change', () => {
         try { localStorage.setItem('cutline.askEngine', $('set-ask-engine').checked ? 'yes' : 'no'); } catch {}
       });
@@ -212,6 +223,7 @@
       mark('set-thumbs', s.thumbs);
       mark('set-accent', s.accent);
       mark('set-workspace', s.workspace);
+      mark('set-guides-for', s.guidesFor === 'shorts' ? 'shorts' : 'reels');
       $('set-font').value = s.font;
       $('set-size').value = s.textSize;
       $('set-size-out').textContent = `${s.textSize}px`;

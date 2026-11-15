@@ -644,6 +644,22 @@
     exportMedia,
     saveCaptions: async (media, content, format) => shareFile(new TextEncoder().encode(content), `${media.name.replace(/\.[^.]+$/, '')}.${format}`, 'text/plain'),
     settings: async () => ({ hasPexelsKey: Boolean(activeKey('pexels')), hasElevenLabsKey: Boolean(activeKey('elevenlabs')) }),
+    // Saved caption styles live in this phone's storage, like the desktop's settings file.
+    captionStyles: async () => { try { return JSON.parse(localStorage.getItem('cutline.captionStyles') || '[]'); } catch { return []; } },
+    saveCaptionStyle: async (entry) => {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem('cutline.captionStyles') || '[]'); } catch {}
+      list = [...list.filter((x) => x.name !== entry.name), entry];
+      localStorage.setItem('cutline.captionStyles', JSON.stringify(list));
+      return list;
+    },
+    deleteCaptionStyle: async (name) => {
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem('cutline.captionStyles') || '[]'); } catch {}
+      list = list.filter((x) => x.name !== name);
+      localStorage.setItem('cutline.captionStyles', JSON.stringify(list));
+      return list;
+    },
     setPexelsKey: async (key) => { addKey('pexels', '', key, ''); return { hasPexelsKey: true }; },
     listKeys: async () => listKeys(),
     keyUsage,

@@ -110,8 +110,82 @@
     return text.replace(/[A-Za-z0-9\u00C0-\u024F][\u0000-\u024F\u2000-\u206F]*/g, (run) => `{\\fn${LATIN_FONT}\\fs${assSize(LATIN_FONT, px)}}${run}{${back}}`);
   }
 
+  // ---------- custom styles ----------
+  //
+  // A caption style is a built-in preset with some of its values changed. Settings keep the
+  // preset id and, in `style`, only the values that differ; styleOf() resolves the two into one
+  // object, which is what everything that draws or groups captions reads. A project stores the
+  // resolved values, so it exports the same even if a saved style is later renamed or deleted.
+
+  // Whole-line animations, the same in the preview (CSS transform) and the export (ASS \t):
+  //   pop      the line springs in when it appears (70% → 108% → 100% over 0.2 s)
+  //   grow     the line grows slowly from 100% to 108% while it is shown
+  //   karaoke  each word fills with the highlight colour from left to right as it is spoken
+  // Animating one word inside a line would push its neighbours sideways in libass but not in the
+  // browser, so pop and grow move the whole line.
+  const ANIMATIONS = { none: 'None', pop: 'Pop in', grow: 'Grow', karaoke: 'Karaoke fill' };
+  const POP = { from: 0.7, over: 1.08, mid: 0.12, end: 0.2 }; // scale, seconds
+  const GROW = 0.08;
+  // Outline thickness choices, as a fraction of the font size.
+  const OUTLINES = { none: 0, thin: 0.035, medium: 0.06, thick: 0.09 };
+  const STYLE_KEYS = ['text', 'hi', 'outline', 'outlineW', 'box', 'upper', 'weight', 'maxWords', 'lines', 'animation'];
+  const HEX = /^#[0-9a-f]{6}$/i;
+
+  // The values in `style` that are valid, everything else dropped.
+  function cleanStyle(style) {
+    const out = {};
+    if (!style || typeof style !== 'object') return out;
+    for (const k of ['text', 'hi', 'outline']) if (HEX.test(String(style[k]))) out[k] = String(style[k]).toUpperCase();
+    if (Number.isFinite(Number(style.outlineW))) out.outlineW = Math.min(0.15, Math.max(0, Number(style.outlineW)));
+    if (style.box === null) out.box = null;
+    else if (HEX.test(String(style.box))) out.box = hexToRgba(style.box, 0.72);
+    else if (/^rgba\(\d+,\s*\d+,\s*\d+,\s*[\d.]+\)$/.test(String(style.box))) out.box = String(style.box);
+    if (typeof style.upper === 'boolean') out.upper = style.upper;
+    if (style.weight != null) out.weight = Number(style.weight) >= 700 ? 800 : 400;
+    if (Number.isFinite(Number(style.maxWords))) out.maxWords = Math.min(12, Math.max(1, Math.round(Number(style.maxWords))));
+    if (Number(style.lines) === 1 || Number(style.lines) === 2) out.lines = Number(style.lines);
+    if (ANIMATIONS[style.animation]) out.animation = style.animation;
+    return out;
+  }
+
+  function hexToRgba(hex, alpha) {
+    const n = parseInt(String(hex).slice(1), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+
+  // The resolved style for caption settings (or a preset id).
+  function styleOf(settings) {
+    if (typeof settings === 'string' || settings == null) return { ...(PRESETS[settings] ?? PRESETS.highlight), lines: 1, animation: 'none' };
+    if (settings.maxChars && settings.mode) return settings; // already resolved
+    const base = PRESETS[settings.preset] ?? PRESETS.highlight;
+    const style = { lines: 1, animation: 'none', ...base, ...cleanStyle(settings.style) };
+    // Karaoke fills the words one by one, so it needs the highlight colour and one line per group.
+    if (style.animation === 'karaoke') style.mode = 'highlight';
+    return style;
+  }
+
+  // The line's scale `o` seconds after its group appears, for a group shown `len` seconds.
+  // The preview calls this every frame; the export writes the same curve as ASS \\t tags.
+  function lineScale(style, o, len) {
+    if (style.animation === 'pop') {
+      if (o <= 0) return POP.from;
+      if (o < POP.mid) return POP.from + ((POP.over - POP.from) * o) / POP.mid;
+      if (o < POP.end) return POP.over + ((1 - POP.over) * (o - POP.mid)) / (POP.end - POP.mid);
+      return 1;
+    }
+    if (style.animation === 'grow') return 1 + (GROW * Math.min(1, Math.max(0, o / Math.max(0.01, len))));
+    return 1;
+  }
+
+  // True when the settings change the preset's look (so the panel says "Custom").
+  function isCustom(settings) {
+    return Object.keys(cleanStyle(settings?.style)).length > 0;
+  }
+
   function settingsOf(s) {
     const out = { ...DEFAULTS, ...(s || {}) };
+    out.style = cleanStyle(out.style);
+    if (!Object.keys(out.style).length) delete out.style;
     if (!PRESETS[out.preset]) out.preset = DEFAULTS.preset;
     if (!SIZES[out.size]) out.size = DEFAULTS.size;
     if (!POSITIONS[out.position] && out.position !== 'custom') out.position = DEFAULTS.position;
@@ -133,7 +207,10 @@
   // Edits.pieceEnds) says where each word's piece of the recording ends: after words have been
   // moved, a group never runs across a join.
   function groupWords(words, deleted, presetId, ends = null) {
-    const p = PRESETS[presetId] ?? PRESETS.highlight;
+    // `presetId` may also be caption settings or a resolved style. With two lines a group holds
+    // twice as many words and characters, and breakLines() splits it.
+    const p0 = styleOf(presetId);
+    const p = { ...p0, maxWords: p0.maxWords * (p0.lines || 1), maxChars: p0.maxChars * (p0.lines || 1) };
     const groups = [];
     let cur = [];
     let chars = 0;
@@ -149,6 +226,24 @@
     });
     flush();
     return groups;
+  }
+
+  // Where a two-line group breaks: the word index (within the group) that starts line two, or -1.
+  // The break balances the two lines' length in characters. Preview and export both use it, so
+  // they break at the same word whatever their own wrapping would do.
+  function breakAt(texts, style) {
+    if ((style.lines || 1) < 2 || texts.length < 2) return -1;
+    const total = texts.reduce((n, t) => n + t.length + 1, 0);
+    if (texts.length <= style.maxWords && total <= style.maxChars + 1) return -1; // fits on one line
+    let best = -1;
+    let bestDiff = Infinity;
+    let left = 0;
+    for (let k = 1; k < texts.length; k++) {
+      left += texts[k - 1].length + 1;
+      const diff = Math.abs(left - (total - left));
+      if (diff < bestDiff) { best = k; bestDiff = diff; }
+    }
+    return best;
   }
 
   // Caption timing on the source timeline: a group shows from its first word until the next
@@ -202,7 +297,8 @@
   // speed is the clip's playback speed; `ends` is Edits.pieceEnds when words have been moved.
   function buildSubtitles({ words, deleted, settings, toEdited, speed = 1, format = 'srt', ends = null }) {
     const s = settingsOf(settings);
-    const spans = groupSpans(groupWords(words, deleted, s.preset, ends), words, ends);
+    const style = styleOf(s);
+    const spans = groupSpans(groupWords(words, deleted, style, ends), words, ends);
     const stamp = (t) => {
       const ms = Math.max(0, Math.round((t / speed) * 1000));
       const hh = String(Math.floor(ms / 3600000)).padStart(2, '0');
@@ -215,7 +311,9 @@
       const start = toEdited(span.start);
       const end = toEdited(span.end, true);
       if (end - start < 0.05) continue;
-      const text = span.words.map((i) => words[i].text.trim()).join(' ').replace(/\s+/g, ' ').trim();
+      const texts = span.words.map((i) => words[i].text.trim());
+      const at = breakAt(texts, style);
+      const text = texts.map((t, k) => (k === at ? `\n${t}` : (k ? ` ${t}` : t))).join('').replace(/[ \t]+/g, ' ').trim();
       if (text) cues.push({ start, end, text });
     }
     const body = cues.map((c, n) => `${format === 'srt' ? `${n + 1}\n` : ''}${stamp(c.start)} --> ${stamp(c.end)}\n${c.text}\n`).join('\n');
@@ -252,7 +350,7 @@
   // Full ASS document for the edited video. `toEdited` maps source time to edited time.
   function buildAss({ words, deleted, settings, language, width, height, toEdited, ends = null }) {
     const s = settingsOf(settings);
-    const p = PRESETS[s.preset];
+    const p = styleOf(s);
     const fontSize = Math.round(fontPx(s, width, height));
     const custom = s.position === 'custom';
     const pos = custom ? `{\\an5\\pos(${Math.round(s.x * width)},${Math.round(s.y * height)})}` : '';
@@ -283,17 +381,60 @@
     ];
 
     const events = [];
-    const spans = groupSpans(groupWords(words, deleted, s.preset, ends), words, ends);
+    const spans = groupSpans(groupWords(words, deleted, p, ends), words, ends);
+    const ms = (sec) => Math.max(0, Math.round(sec * 1000));
     for (const span of spans) {
-      const line = (current) => span.words.map((i) => {
+      const texts = span.words.map((i) => words[i].text);
+      const brk = breakAt(texts, p);
+      const join = (parts) => parts.map((t, k) => (k === brk ? `\\N${t}` : (k ? ` ${t}` : t))).join('');
+      const line = (current) => join(span.words.map((i) => {
         const text = withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize);
         if (p.mode !== 'highlight' || i !== current || p.hi === p.text) return text;
         return `{\\c${assColor(p.hi)}}${text}{\\c${assColor(p.text)}}`;
-      }).join(' ');
+      }));
+      const spanA = toEdited(span.start);
+      const spanB = toEdited(span.end, true);
+      // The whole-line animation for an event running from edited time a to b.
+      const motion = (a, b) => {
+        if (p.animation === 'pop') {
+          // Keyframes of the scale after the group appears, from where this event starts.
+          const o = a - spanA;
+          if (o >= POP.end) return '';
+          const keys = [[0, POP.from], [POP.mid, POP.over], [POP.end, 1]];
+          const pc = (x) => Math.round(x * 1000) / 10;
+          let tags = `\\fscx${pc(lineScale(p, o, 1))}\\fscy${pc(lineScale(p, o, 1))}`;
+          let prev = o;
+          for (const [t, v] of keys) {
+            if (t <= o) continue;
+            tags += `\\t(${ms(prev - o)},${ms(t - o)},\\fscx${pc(v)}\\fscy${pc(v)})`;
+            prev = t;
+          }
+          return `{${tags}}`;
+        }
+        if (p.animation === 'grow') {
+          const len = Math.max(0.01, spanB - spanA);
+          const s0 = Math.round((1 + (GROW * (a - spanA)) / len) * 1000) / 10;
+          const s1 = Math.round((1 + (GROW * (b - spanA)) / len) * 1000) / 10;
+          return `{\\fscx${s0}\\fscy${s0}\\t(0,${ms(b - a)},\\fscx${s1}\\fscy${s1})}`;
+        }
+        return '';
+      };
+      if (p.animation === 'karaoke') {
+        // One event per group: each word fills from the text colour to the highlight colour over
+        // the time until the next word starts (edited time, so cut pauses inside it shorten it).
+        if (spanB - spanA <= 0.02) continue;
+        let used = 0;
+        const parts = span.words.map((i, k) => {
+          const until = k === span.words.length - 1 ? toEdited(Math.max(words[i].end, words[i].start), true) : toEdited(words[span.words[k + 1]].start);
+          const cs = Math.max(1, Math.round((until - spanA) * 100) - used);
+          used += cs;
+          return `{\\kf${cs}}${withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize)}`;
+        });
+        events.push(`Dialogue: 0,${assTime(spanA)},${assTime(spanB)},Cap,,0,0,0,,${pos}{\\1c${assColor(p.hi)}\\2c${assColor(p.text)}}${join(parts)}`);
+        continue;
+      }
       if (p.mode === 'line' || p.hi === p.text) {
-        const a = toEdited(span.start);
-        const b = toEdited(span.end, true);
-        if (b - a > 0.02) events.push(`Dialogue: 0,${assTime(a)},${assTime(b)},Cap,,0,0,0,,${pos}${line(-1)}`);
+        if (spanB - spanA > 0.02) events.push(`Dialogue: 0,${assTime(spanA)},${assTime(spanB)},Cap,,0,0,0,,${pos}${motion(spanA, spanB)}${line(-1)}`);
         continue;
       }
       // One event per spoken word, so the highlight moves with the speech.
@@ -302,13 +443,13 @@
         const to = k === span.words.length - 1 ? span.end : words[span.words[k + 1]].start;
         const a = toEdited(from);
         const b = toEdited(to, true);
-        if (b - a > 0.02) events.push(`Dialogue: 0,${assTime(a)},${assTime(b)},Cap,,0,0,0,,${pos}${line(i)}`);
+        if (b - a > 0.02) events.push(`Dialogue: 0,${assTime(a)},${assTime(b)},Cap,,0,0,0,,${pos}${motion(a, b)}${line(i)}`);
       });
     }
     return `${header.join('\n')}\n${events.join('\n')}\n`;
   }
 
-  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, SCRIPT_FONTS, FONT_FILES, LINE_HEIGHT, LATIN_FONT, fontFor, fontStack, assSize, withFontRuns, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
+  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, ANIMATIONS, POP, GROW, OUTLINES, STYLE_KEYS, cleanStyle, styleOf, isCustom, breakAt, lineScale, hexToRgba, SCRIPT_FONTS, FONT_FILES, LINE_HEIGHT, LATIN_FONT, fontFor, fontStack, assSize, withFontRuns, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineCaptions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

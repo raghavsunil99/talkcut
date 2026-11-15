@@ -352,10 +352,9 @@
         state.clip = F.normalize(project.clip);
         properties.setProps(state.clip, 0);
         applyAudio();
-        if (project.captions) {
-          state.captions = C.settingsOf(project.captions);
-          panels.setCaptions(state.captions);
-        }
+        // A project saved without captions opens with the defaults, not the last project's.
+        state.captions = C.settingsOf(project.captions ?? null);
+        panels.setCaptions(state.captions);
         panels.setLanguage(state.language);
         panels.setLibrary(state.tracks.flatMap((t) => t.items).filter((i) => i.path).map((i) => ({ path: i.path, url: i.url, name: i.name, kind: i.kind, thumb: i.thumb, duration: i.duration })));
         state.projectPath = project.filePath;

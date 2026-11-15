@@ -312,6 +312,29 @@ handle('settings:get', async () => ({
   hasElevenLabsKey: Boolean(await elevenLabsKey()),
 }));
 
+// Caption styles the user saved, for every project on this Mac: [{ name, preset, style, size, position }].
+async function captionStyles() {
+  const list = (await readSettings()).captionStyles;
+  return Array.isArray(list) ? list.filter((x) => x && typeof x.name === 'string') : [];
+}
+handle('caption-styles:list', () => captionStyles());
+handle('caption-styles:save', async (_event, entry) => {
+  const name = String(entry?.name ?? '').trim().slice(0, 40);
+  if (!name) throw new Error('Give the style a name.');
+  const clean = { name, preset: String(entry.preset ?? 'highlight'), style: entry.style && typeof entry.style === 'object' ? entry.style : {}, size: entry.size, position: entry.position };
+  const settings = await readSettings();
+  const list = (await captionStyles()).filter((x) => x.name !== name);
+  settings.captionStyles = [...list, clean];
+  await writeSettings(settings);
+  return settings.captionStyles;
+});
+handle('caption-styles:delete', async (_event, name) => {
+  const settings = await readSettings();
+  settings.captionStyles = (await captionStyles()).filter((x) => x.name !== name);
+  await writeSettings(settings);
+  return settings.captionStyles;
+});
+
 handle('keys:list', () => keys.list());
 handle('keys:usage', async (_event, { service, id }) => {
   if (service !== 'elevenlabs') throw new Error('Usage is only available for ElevenLabs keys.');
