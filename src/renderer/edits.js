@@ -118,6 +118,21 @@
     return acc;
   }
 
+  // toEdited for many times asked in increasing order (words, caption groups), in one pass over
+  // the kept ranges instead of a search per time. Asking for an earlier time starts it over.
+  function editedMapper(kept) {
+    let k = 0;
+    let acc = 0;
+    let last = -Infinity;
+    return (t) => {
+      if (t < last) { k = 0; acc = 0; }
+      last = t;
+      while (k < kept.length && t > kept[k][1]) { acc += kept[k][1] - kept[k][0]; k++; }
+      if (k >= kept.length) return acc;
+      return t < kept[k][0] ? acc : acc + (t - kept[k][0]);
+    };
+  }
+
   // Time in the original media for a position on the edited timeline.
   function toSource(kept, x) {
     let acc = 0;
@@ -371,7 +386,7 @@
 
   const api = {
     FILLERS, MIN_GAP, GAP_KEEP,
-    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, snapRanges, mergeRanges, toEdited, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength,
+    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, snapRanges, mergeRanges, toEdited, editedMapper, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineEdits = api;

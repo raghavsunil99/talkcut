@@ -188,3 +188,14 @@ test('Indian-script words keep their vowel signs when compared', () => {
   const words = [{ text: 'കാർഡ്', start: 0, end: 0.4 }, { text: 'കർഡ്', start: 0.5, end: 0.9 }];
   assert.deepEqual(E.findPhrase(words, new Set(), 'കാർഡ്'), [[0, 0]]);
 });
+
+test('editedMapper gives the same edited times as toEdited, in order or not', () => {
+  const E = require('../src/renderer/edits.js');
+  const kept = [[0.5, 2], [3, 3.5], [4.25, 9], [12, 20]];
+  const times = Array.from({ length: 400 }, (_, i) => i * 0.0573);
+  const map = E.editedMapper(kept);
+  for (const t of times) assert.equal(map(t), E.toEdited(kept, t), `t=${t}`);
+  const shuffled = E.editedMapper(kept);
+  for (const t of [7, 1, 15, 0, 3.2, 3.2, 25, 2]) assert.equal(shuffled(t), E.toEdited(kept, t), `t=${t}`);
+  assert.equal(E.editedMapper([])(5), 0);
+});

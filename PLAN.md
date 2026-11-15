@@ -270,6 +270,21 @@ Do these in the order listed. 1.1 to 1.3 are the safety net for 1.4.
 7. **Model:** Opus 5.5
 
 #### 1.7 Long-video performance in the editor
+
+**Status: done; thumbnails left as they are.** Measured with `scripts/bench-editor.js` on a 60-minute project (8,997 words, captions on, 20 photos on tracks):
+
+| | Before | After |
+|---|---|---|
+| Open project | 910 ms | 190–270 ms |
+| Select a word | about 200 ms | 12 ms |
+| Cut one word | 293 ms | 16 ms |
+| Undo | not measured | 15 ms |
+| Playback | 120 fps | 119 fps (one 33 ms frame in 477) |
+
+- The plan's guess was wrong: the transcript was not the main cost. The timeline rebuilt a DOM block for every word and caption group, two or three times per refresh, each placed with a linear search. It now builds blocks only around the visible part (rebuilding as you scroll), maps times in one pass (`Edits.editedMapper`), lays out once per refresh, and caches theme colours.
+- A cut now redraws only its own paragraph. Long speech without pauses is split into paragraphs (at a sentence end after 120 words, at most 250), and off-screen paragraphs skip layout (`content-visibility: auto`).
+- Filmstrip thumbnails finishing loading no longer redraw the timeline once each.
+- Not done: keeping B-roll thumbnails out of project files. Measured, they add about 6 KB per item and undo snapshots share them rather than copy them, so it was not worth the change.
 1. **Why:** podcasts and classes run 30 to 90 minutes, and every cut rebuilds the document.
 2. **Files:** `transcript-view.js` and `preview.js` (after 1.4), `timeline.js`, `tracks.js`, `media.js` (`extractFrames`), `main.js` (`media:timeline`).
 3. **Approach:**
