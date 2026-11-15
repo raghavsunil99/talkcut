@@ -6,8 +6,9 @@ const H = require('./helpers.js');
 
 const TIMEOUT = { timeout: 90_000 };
 
-async function withProject(fn, extra) {
-  const dir = H.tempDir();
+const withProject = (fn, extra) => withProjectIn(H.tempDir(), extra, fn);
+
+async function withProjectIn(dir, extra, fn) {
   const file = H.makeProject(dir, H.makeVideo(dir), extra);
   const { app, page } = await H.launch(dir);
   try {
@@ -61,3 +62,23 @@ test('find and replace fixes every match, remembers the fix, and undoes', TIMEOU
   await page.locator('#word-menu').waitFor();
   assert.equal(await page.locator('#word-menu li').count(), 6);
 }));
+
+test('the item inspector edits a B-roll photo, undoes and deletes it', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  const photo = H.makeImage(dir);
+  const tracks = [{ id: 't1', type: 'overlay', name: 'Overlay 1', items: [{ id: 'i1', kind: 'image', name: 'photo.png', path: photo, start: 1, length: 2, box: { x: 0, y: 0, w: 1, h: 1 } }] }];
+  await withProjectIn(dir, { tracks }, async ({ page, file }) => {
+    const item = () => H.readProject(file).tracks[0].items[0];
+    await page.locator('.tl-item').first().click();
+    await page.locator('#item-props').waitFor();
+    assert.equal(await page.locator('#props-title').textContent(), 'B-roll');
+    await page.fill('#item-fade-in', '1');
+    await page.press('#item-fade-in', 'Enter');
+    await H.until(() => item().fadeIn === 1, 'the fade to be saved');
+    await page.click('#btn-undo');
+    await H.until(() => item().fadeIn === 0, 'the undo to be saved');
+    await page.locator('.tl-item').first().click();
+    await page.click('#item-delete');
+    await H.until(() => H.readProject(file).tracks[0].items.length === 0, 'the delete to be saved');
+  });
+});
