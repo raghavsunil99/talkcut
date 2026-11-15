@@ -935,6 +935,8 @@ async function buildMenu() {
         { type: 'separator' },
         { label: 'Show or Hide Transcript', click: command('toggle-transcript') },
         { label: 'Show or Hide Timeline', click: command('toggle-timeline') },
+        { label: 'Show Cut Words', click: command('toggle-show-cut') },
+        { label: 'Command Palette…', accelerator: 'CmdOrCtrl+K', click: command('palette') },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', registerAccelerator: false, click: command('settings') },
         { type: 'separator' },

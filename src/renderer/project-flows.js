@@ -15,6 +15,7 @@
       state.cutGaps = new Set();
       state.order = null;
       state.gapKeep = E.GAP_KEEP;
+      state.scenes = [];
       state.playK = -1;
       state.clipboard = null;
       state.splits = [];
@@ -338,6 +339,7 @@
         const valid = (i, min) => Number.isInteger(i) && i >= min && i < project.words.length;
         state.words = E.ensureIds(project.words);
         state.gapKeep = Number.isFinite(project.gapKeep) ? Math.min(1, Math.max(0.05, project.gapKeep)) : E.GAP_KEEP;
+        state.scenes = CutlineScenes.normalize(project.scenes);
         const order = E.normalizeOrder(project.order, project.media.duration || 0);
         state.order = E.isIdentity(order, project.media.duration || 0) ? null : order;
         state.speakers = project.speakers && typeof project.speakers === 'object' ? project.speakers : {};
@@ -379,6 +381,7 @@
         cutGaps: [...state.cutGaps].sort((a, b) => a - b),
         order: state.order,
         gapKeep: state.gapKeep,
+        scenes: state.scenes,
         splits: state.splits,
         rangeCuts: state.rangeCuts,
         captions: state.captions,

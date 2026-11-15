@@ -106,12 +106,18 @@
       this.renderCaptionsPanel();
       this.loadSavedStyles();
       this.buildMediaPanel();
-      this.toggle('captions');
+      this.toggle(Panels.lastPanel());
+    }
+
+    // The panel last shown, so the side panel reopens where you were.
+    static lastPanel() {
+      try { return localStorage.getItem('cutline.lastPanel') || 'captions'; } catch { return 'captions'; }
     }
 
     toggle(name) {
       const active = this.railButtons.find((b) => b.classList.contains('on'))?.dataset.panel;
       const show = active === name ? null : name;
+      if (show) { try { localStorage.setItem('cutline.lastPanel', show); } catch {} }
       this.railButtons.forEach((b) => b.classList.toggle('on', b.dataset.panel === show));
       for (const b of this.railButtons) $(`panel-${b.dataset.panel}`).hidden = show !== b.dataset.panel;
       this.sidebar.classList.toggle('collapsed', !show);
@@ -343,6 +349,7 @@
         $('media-tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
         $('media-mine').hidden = b.dataset.tab !== 'mine';
         $('media-stock').hidden = b.dataset.tab !== 'stock';
+        $('media-text').hidden = b.dataset.tab !== 'text';
         if (b.dataset.tab === 'stock') this.refreshStockSetup();
       }));
       $('btn-add-broll').addEventListener('click', async () => {

@@ -24,7 +24,7 @@
         if (lastSidebarPref !== null && lastSidebarPref !== s.sidebar) {
           const active = document.querySelector('.rail-btn.on');
           if (!s.sidebar && active) active.click();
-          if (s.sidebar && !active) openRailPanel('properties');
+          if (s.sidebar && !active) openRailPanel(CutlinePanels.Panels.lastPanel());
         }
         lastSidebarPref = s.sidebar;
         $('btn-toggle-transcript').classList.toggle('on', s.transcript);
@@ -34,12 +34,12 @@
       },
       onTimelineHeight: (h) => setTimelineHeight(h),
     });
-    $('btn-settings').addEventListener('click', () => appearance.open());
+    $('btn-settings')?.addEventListener('click', () => appearance.open());
     $('btn-toggle-transcript').addEventListener('click', () => appearance.toggle('transcript'));
     $('btn-toggle-timeline').addEventListener('click', () => appearance.toggle('timeline'));
     $('btn-toggle-sidebar').addEventListener('click', () => {
       const active = document.querySelector('.rail-btn.on');
-      if (active) active.click(); else openRailPanel('properties');
+      if (active) active.click(); else openRailPanel(CutlinePanels.Panels.lastPanel());
       $('btn-toggle-sidebar').classList.toggle('on', !active);
     });
     // ⌘1–⌘4 switch workspaces; ⌘, opens Settings.
@@ -61,31 +61,47 @@
       window.dispatchEvent(new Event('resize'));
     }
     try { setTimelineHeight(Number(localStorage.getItem('cutline.timelineHeight')) || 300, false); } catch { setTimelineHeight(300, false); }
+    // Collapsed, the timeline is just its bar (time, transport, zoom). Click the handle on its
+    // top edge, or press ⌥⌘T, to open or close it; drag the handle to resize.
+    function setCollapsed(on) {
+      document.body.classList.toggle('tl-collapsed', on);
+      $('tl-resize').title = on ? 'Click or drag up to open the timeline (⌥⌘T)' : 'Drag to resize the timeline; click to collapse it (⌥⌘T)';
+      try { localStorage.setItem('cutline.timelineCollapsed', on ? '1' : ''); } catch {}
+      window.dispatchEvent(new Event('resize'));
+    }
+    try { setCollapsed(localStorage.getItem('cutline.timelineCollapsed') === '1'); } catch {}
     $('tl-resize').addEventListener('mousedown', (e) => {
       e.preventDefault();
       const y0 = e.clientY;
-      const h0 = $('timeline').getBoundingClientRect().height;
+      const collapsed = document.body.classList.contains('tl-collapsed');
+      const h0 = collapsed ? TL_MIN : $('timeline').getBoundingClientRect().height;
+      let moved = false;
       $('tl-resize').classList.add('dragging');
-      const move = (ev) => setTimelineHeight(h0 + (y0 - ev.clientY));
+      const move = (ev) => {
+        if (!moved && Math.abs(ev.clientY - y0) < 4) return;
+        moved = true;
+        if (document.body.classList.contains('tl-collapsed')) setCollapsed(false);
+        setTimelineHeight(h0 + (y0 - ev.clientY));
+      };
       const up = () => {
         $('tl-resize').classList.remove('dragging');
+        if (!moved) setCollapsed(!collapsed);
         window.removeEventListener('mousemove', move);
         window.removeEventListener('mouseup', up);
       };
       window.addEventListener('mousemove', move);
       window.addEventListener('mouseup', up);
     });
-    // ⌥⌘T switches between a compact and a tall timeline.
+    // ⌥⌘T opens or collapses the timeline.
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyT' && e.altKey && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        const h = $('timeline').getBoundingClientRect().height;
-        setTimelineHeight(h > 260 ? 180 : Math.max(380, Math.round(window.innerHeight * 0.45)));
+        setCollapsed(!document.body.classList.contains('tl-collapsed'));
       }
     });
     new ResizeObserver(() => { resetCaptionCache(); updatePlayhead(); }).observe(els.player);
 
-    return { appearance };
+    return { appearance, setCollapsed };
   }
 
   root.CutlineWorkspace = { create };

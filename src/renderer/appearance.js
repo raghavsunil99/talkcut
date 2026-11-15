@@ -18,7 +18,7 @@
   // Workspaces set panel sizes and visibility; your own changes are kept on top until you
   // pick a workspace again.
   const WORKSPACES = {
-    studio: { label: 'Studio', key: '1', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.38, sidebarW: 300, timelineH: 300, guides: false } },
+    studio: { label: 'Studio', key: '1', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.5, sidebarW: 300, timelineH: 300, guides: false } },
     video: { label: 'Video first', key: '2', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.26, sidebarW: 320, timelineH: 380, guides: false } },
     script: { label: 'Script first', key: '3', layout: { transcript: true, sidebar: false, timeline: true, transcriptW: 0.62, sidebarW: 300, timelineH: 170, guides: false } },
     reels: { label: 'Reels', key: '4', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.36, sidebarW: 320, timelineH: 220, guides: true } },

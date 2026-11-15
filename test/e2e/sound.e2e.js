@@ -26,6 +26,8 @@ test('Studio Sound strength and a -14 LUFS target reach the project and the expo
     assert.deepEqual([(await clip(page)).enhanceEngine, (await clip(page)).enhanceStrength], ['rnnoise', 0.8]);
     await page.locator('#prop-strength-num').fill('60');
     await page.locator('#prop-strength-num').press('Enter');
+    // Loudness is a project setting, in the Project panel.
+    await page.click('.rail-btn[data-panel="project"]');
     await page.locator('#prop-loudness').selectOption('-14');
     const c = await clip(page);
     assert.deepEqual([c.enhance, c.enhanceEngine, c.enhanceStrength, c.loudness], [true, 'rnnoise', 0.6, -14]);
