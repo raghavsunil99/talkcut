@@ -226,10 +226,10 @@ async function measureLoudness(filePath, { signal } = {}) {
 // at -16). The sound is measured, turned up or down by the difference, with a limiter keeping
 // peaks under -1 dBTP, and measured again; when the limiter has taken some of the gain (loud
 // peaks in speech), the gain is raised by what is missing and the pass made again from the
-// original, at most three times. The picture is copied untouched. Done after the export so the
+// original, at most four times. The picture is copied untouched. Done after the export so the
 // result is exact (a one-pass loudness filter drifts on short clips and lifts the hiss between
 // words). Returns the loudness before and after.
-async function matchLoudness(filePath, target, { signal, tolerance = 0.5 } = {}) {
+async function matchLoudness(filePath, target, { signal, tolerance = 0.3 } = {}) {
   const before = await measureLoudness(filePath, { signal });
   if (!Number.isFinite(before.lufs) || before.lufs < -70) return { before, after: before };
   if (Math.abs(before.lufs - target) <= tolerance && before.peak <= -1) return { before, after: before };
@@ -239,7 +239,7 @@ async function matchLoudness(filePath, target, { signal, tolerance = 0.5 } = {})
   let gain = target - before.lufs;
   let after = before;
   try {
-    for (let tries = 0; tries < 3; tries++) {
+    for (let tries = 0; tries < 4; tries++) {
       await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-map', '0', '-c:v', 'copy', '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=${(10 ** (-1.5 / 20)).toFixed(4)}:level=disabled`, ...codec, ...(/\.(mp4|mov|m4a)$/.test(ext) ? ['-movflags', '+faststart'] : []), tmp], { signal });
       after = await measureLoudness(tmp, { signal });
       if (Math.abs(after.lufs - target) <= tolerance) break;

@@ -73,19 +73,28 @@ test('the bundled model is there and a real export with Studio Sound uses it, fr
   const before = contrast(src);
   const after = contrast(out);
   assert.ok(after > before + 10, `speech over hiss ${before.toFixed(1)} dB before, ${after.toFixed(1)} dB after`);
+  // And it really went through RNNoise: the same export without the model (the old chain) differs.
+  const old = path.join(dir, 'old.mp4');
+  await renderEdit({ input: src, output: old, ranges: [[0, 6]], hasVideo: true, hasAudio: true, duration: 6, width: 160, height: 120, fps: 30, clip: F.normalize({ enhance: true }), rnnoiseModel: null });
+  const pcm = (f) => execFileSync(ffmpeg, ['-hide_banner', '-i', f, '-vn', '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] });
+  const a = pcm(out);
+  const b = pcm(old);
+  let diff = 0;
+  for (let i = 0; i < Math.min(a.length, b.length) / 2; i++) diff += Math.abs(a.readInt16LE(i * 2) - b.readInt16LE(i * 2));
+  assert.ok(diff / (a.length / 2) > 50, `RNNoise and the old chain give different sound (mean difference ${(diff / (a.length / 2)).toFixed(0)})`);
   // The preview file is made the same way.
   const preview = path.join(dir, 'preview.m4a');
   await enhanceAudio(src, preview, { strength: 0.8 });
   assert.ok((await probe(preview)).hasAudio);
 });
 
-test('the loudness target lands within 1 LU, up or down, and leaves the picture alone', async () => {
+test('the loudness target lands within 0.5 LU, up or down, and leaves the picture alone', async () => {
   const src = noisy();
   for (const target of [-14, -16, -23]) {
     const file = path.join(dir, `loud${target}.mp4`);
     fs.copyFileSync(src, file);
     const { before, after } = await matchLoudness(file, target);
-    assert.ok(Math.abs(after.lufs - target) <= 1, `target ${target}: ${before.lufs} → ${after.lufs} LUFS`);
+    assert.ok(Math.abs(after.lufs - target) <= 0.5, `target ${target}: ${before.lufs} → ${after.lufs} LUFS`);
     assert.ok(after.peak <= -0.9, `true peak ${after.peak} dBTP`);
     const info = await probe(file);
     assert.ok(info.hasVideo && Math.abs(info.duration - 6) < 0.1);
@@ -94,9 +103,12 @@ test('the loudness target lands within 1 LU, up or down, and leaves the picture 
   const m4a = path.join(dir, 'voice.m4a');
   execFileSync(ffmpeg, ['-hide_banner', '-y', '-i', src, '-vn', '-c:a', 'aac', m4a], { stdio: 'ignore' });
   const { after } = await matchLoudness(m4a, -14);
-  assert.ok(Math.abs(after.lufs + 14) <= 1, `m4a: ${after.lufs}`);
+  assert.ok(Math.abs(after.lufs + 14) <= 0.5, `m4a: ${after.lufs}`);
   const wav = path.join(dir, 'voice.wav');
   execFileSync(ffmpeg, ['-hide_banner', '-y', '-i', src, '-vn', wav], { stdio: 'ignore' });
-  assert.ok(Math.abs((await matchLoudness(wav, -16)).after.lufs + 16) <= 1);
+  assert.ok(Math.abs((await matchLoudness(wav, -16)).after.lufs + 16) <= 0.5);
+  const mp3 = path.join(dir, 'voice.mp3');
+  execFileSync(ffmpeg, ['-hide_banner', '-y', '-i', src, '-vn', '-ac', '2', mp3], { stdio: 'ignore' });
+  assert.ok(Math.abs((await matchLoudness(mp3, -14)).after.lufs + 14) <= 0.5, 'mp3, stereo');
   assert.ok(Number.isFinite((await measureLoudness(src)).lufs));
 });
