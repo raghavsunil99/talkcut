@@ -336,6 +336,22 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 ### Phase 2: core wins
 
 #### 2.1 Transcription benchmark
+**Status: done; whisper.cpp measured, ElevenLabs not yet (no key was available).** `node scripts/bench-stt.js` fetches 3 clips per language from FLEURS (Google, CC BY 4.0; covers te, ta, ml, kn, hi, en; only the first ~4 MB of each test archive is downloaded, about 14 MB cached under the system temp folder, not the 2.5 GB archives), loudness-normalises them (some FLEURS clips are so quiet that Talkcut's speech detector treats them as silence), runs each available engine and prints one table plus a JSON file beside the cache. WER is computed in `scripts/lib/wer.js` over words after the editor's `normalize()` (unit-tested in `test/wer.test.js`, including a Telugu pair and a vowel-sign case). A marked spot is left for Sarvam (task 2.2, key from `SARVAM_API_KEY`); ElevenLabs reads `ELEVENLABS_API_KEY`. First run, whisper.cpp v1.7.6 on this Mac, 3 clips per language (about 6 minutes for both engines):
+
+| Language | Fast WER | Accurate WER |
+|---|---|---|
+| English | 8.2% | 6.8% |
+| Hindi | 33.3% | 28.0% |
+| Telugu | 80.9% | 46.8% |
+| Kannada | 66.7% | 63.6% |
+| Tamil | 118.9% | 94.6% |
+| Malayalam | 162.3% | 126.4% |
+
+Local Whisper is usable for English and Hindi only; Tamil and Malayalam are over 90% (above 100% means it wrote more wrong words than the reference has). That backs the case for 2.2. Caveats:
+- FLEURS is read speech, so every engine's numbers will look better than a creator's phone recording.
+- FLEURS has no word times, so the start-time error column prints n/a rather than a made-up number.
+- Code-mixed accuracy stays unmeasured: there is no public reference and the repo has no demo clip, so the English-in-Latin-letters column is empty.
+- Three clips per language (33 to 93 words) is a smoke test, not a statistically solid comparison; raise it with `--clips=N`.
 1. **Why:** engine choices are currently based on one Telugu clip.
 2. **Files:** new `scripts/bench-stt.js`, new `test/fixtures/stt/` (downloaded by a script, not stored in git).
 3. **Approach:**
