@@ -30,3 +30,15 @@ test('the API keys dialog lists keys, opens the add form and closes', TIMEOUT, (
   await page.click('#keys-close');
   await H.until(() => page.locator('#keys-dialog').isHidden(), 'the dialog to close');
 }));
+
+test('the export dialog saves captions alone as an SRT file', TIMEOUT, () => withProject(async ({ page, dir }) => {
+  await page.click('#btn-export');
+  await page.click('#export-presets [data-preset="captions"]');
+  assert.equal(await page.locator('#export-go').textContent(), 'Save captions…');
+  await page.click('#export-go');
+  const srt = require('node:path').join(dir, 'export.srt');
+  await H.until(() => fs.existsSync(srt), 'the SRT file');
+  const text = fs.readFileSync(srt, 'utf8');
+  assert.match(text, /^1\n00:00:00,200 --> /);
+  assert.match(text, /one two three four/);
+}));
