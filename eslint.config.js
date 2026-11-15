@@ -6,7 +6,7 @@ const globals = require('globals');
 const cutlineGlobals = Object.fromEntries([
   'CutlineAppearance', 'CutlineCanvas', 'CutlineCaptions', 'CutlineCrop', 'CutlineEdits', 'CutlineFrame',
   'CutlineHome', 'CutlinePanels', 'CutlineProperties', 'CutlineRenderPlan', 'CutlineSpeakers', 'CutlineText',
-  'CutlineTimeline', 'CutlineTracks', 'CutlineWorkspace', 'CutlineTranscriptInput', 'CutlineTranscriptView', 'CutlineEditCommands', 'CutlineProjectFlows', 'CutlinePreview', 'CutlineCanvasController', 'CutlineTextEditor', 'CutlineItemInspector', 'CutlineSpeakersUI', 'CutlineFindReplace', 'CutlineExportDialog', 'CutlineKeysDialog',
+  'CutlineTimeline', 'CutlineTracks', 'CutlineEngineOptions', 'CutlineFileDrop', 'CutlineAiTools', 'CutlineTimelineTools', 'CutlinePlatformText', 'CutlineWorkspace', 'CutlineTranscriptInput', 'CutlineTranscriptView', 'CutlineEditCommands', 'CutlineProjectFlows', 'CutlinePreview', 'CutlineCanvasController', 'CutlineTextEditor', 'CutlineItemInspector', 'CutlineSpeakersUI', 'CutlineFindReplace', 'CutlineExportDialog', 'CutlineKeysDialog',
 ].map((name) => [name, 'readonly']));
 
 const rules = {

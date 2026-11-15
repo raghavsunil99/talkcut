@@ -164,3 +164,10 @@ test('View menu: workspaces and showing or hiding the timeline', TIMEOUT, () => 
   await menu('toggle-timeline');
   await H.until(async () => (await hidden()) !== before, 'the timeline to toggle');
 }));
+
+test('Studio Sound turns on from AI tools and is saved with the project', TIMEOUT, () => withProject(async ({ page, file }) => {
+  await page.click('.rail-btn[data-panel="ai"]');
+  await page.click('#ai-studio');
+  await H.until(() => H.readProject(file).clip?.enhance === true, 'Studio Sound to be saved');
+  assert.equal(await page.locator('#ai-studio').textContent(), 'Turn off');
+}));

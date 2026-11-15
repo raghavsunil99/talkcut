@@ -15,42 +15,8 @@
   const IS_MOBILE = cutline.platform === 'android';
   const IS_WIN = cutline.platform === 'win32';
   document.documentElement.dataset.platform = cutline.platform;
-  function forPlatform(text) {
-    if (!text) return text;
-    if (IS_MOBILE) {
-      return String(text)
-        .replace(/Keys are stored encrypted on this Mac/g, 'Keys are kept on this phone only')
-        .replace(/transcribes it on this Mac/g, 'transcribes it with ElevenLabs')
-        .replace(/ on this Mac/g, ' on this phone').replace(/this Mac/g, 'this phone')
-        .replace(/\bClick /g, 'Tap ').replace(/\bclick /g, 'tap ').replace(/double-click/g, 'double-tap')
-        .replace(/ \((?:⇧|⌥)?⌘[^)]*\)/g, '').replace(/(?:⇧|⌥)?⌘\S+/g, '').replace(/Ctrl\+\S+/g, '');
-    }
-    if (!IS_WIN) return text;
-    return String(text)
-      .replace(/⇧⌘/g, 'Ctrl+Shift+').replace(/⌥⌘/g, 'Ctrl+Alt+').replace(/⌘/g, 'Ctrl+')
-      .replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+')
-      .replace(/Show in Finder/g, 'Show in File Explorer').replace(/Finder/g, 'File Explorer')
-      .replace(/this Mac/g, 'this PC').replace(/your Mac/g, 'your PC').replace(/Match Mac/g, 'Match Windows');
-  }
-  function localize(rootEl) {
-    if (!IS_WIN && !IS_MOBILE) return;
-    const walk = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-      const t = forPlatform(n.nodeValue);
-      if (t !== n.nodeValue) n.nodeValue = t;
-    }
-    const els2 = rootEl.querySelectorAll ? [rootEl, ...rootEl.querySelectorAll('[title], [placeholder]')] : [];
-    for (const el of els2) {
-      if (el.title) { const t = forPlatform(el.title); if (t !== el.title) el.title = t; }
-      if (el.placeholder) { const t = forPlatform(el.placeholder); if (t !== el.placeholder) el.placeholder = t; }
-    }
-  }
-  if (IS_WIN || IS_MOBILE) {
-    localize(document.body);
-    new MutationObserver((list) => {
-      for (const m of list) for (const n of m.addedNodes) localize(n.nodeType === 1 ? n : n.parentNode ?? document.body);
-    }).observe(document.body, { childList: true, subtree: true });
-  }
+  const { forPlatform } = CutlinePlatformText.create({ IS_MOBILE, IS_WIN });
+
   const $ = (id) => document.getElementById(id);
 
   const els = {
@@ -602,100 +568,15 @@
 
   const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay });
 
-  // ---------- auto-framing ----------
-
-  // Fill a frame shape (9:16 by default) around the speaker's face.
-  async function autoFrame(canvas = '9:16') {
-    if (!hasProject() || state.busy) return;
-    if (!state.media.hasVideo) { toast('Auto-framing needs a video.', { error: true }); return; }
-    state.busy = true;
-    refresh();
-    showOverlay('Finding the speaker…', 'Looking for faces across the video.', null);
-    try {
-      const face = await cutline.findFaces(state.media.path, duration());
-      if (!face) {
-        toast('No face found in most of the video, so the framing was left as it is. Use Fill and drag the video to frame it yourself.', { error: true, ms: 7000 });
-        return;
-      }
-      const w = els.video.videoWidth || state.media.width;
-      const h = els.video.videoHeight || state.media.height;
-      commit({ clip: F.autoFrame(w, h, state.clip, face, canvas) });
-      toast(`Framed for ${F.CANVASES[canvas].label} around the speaker (found in ${face.found} of ${face.frames} sampled frames). Drag the video to adjust; ⌘Z to undo.`, { ms: 6000 });
-    } catch (err) {
-      showError(err);
-    } finally {
-      state.busy = false;
-      hideOverlay();
-      refresh();
-    }
-  }
-  $('prop-autoframe').addEventListener('click', () => autoFrame());
-  $('ai-autoframe').addEventListener('click', () => autoFrame());
-  $('ai-studio').addEventListener('click', () => {
-    if (!hasProject()) return;
-    commit({ clip: F.normalize({ ...state.clip, enhance: !state.clip.enhance }) });
-    toast(state.clip.enhance ? 'Studio Sound is on. The export uses it too.' : 'Studio Sound is off.');
-  });
-  $('ai-find').addEventListener('click', () => openFind());
-  $('ai-speakers').addEventListener('click', (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const sel = selectionRange();
-    showSpeakerMenu(r.left - 230, r.top, sel, sel ? state.words[sel[0]].speaker : null);
-  });
+  const { autoFrame } = CutlineAiTools.create({ $, els, state, F, hasProject, duration, commit, refresh, toast, showError, showOverlay, hideOverlay, openFind, showSpeakerMenu, selectionRange });
 
   const { openExport, saveCaptionsFile, exportMedia } = CutlineExportDialog.create({ $, els, state, F, C, E, T, frameLayout, hasProject, refresh, toast, showError, showOverlay, hideOverlay, baseName });
 
-  // ---------- settings ----------
-
-  async function loadSettings() {
-    const { languages, qualities } = await cutline.options();
-    const read = (key, fallback) => { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } };
-    const savedLang = read('cutline.language', 'auto');
-    const savedQuality = read('cutline.quality', 'fast');
-    for (const { code, label } of languages) {
-      languageNames[code] = label;
-      els.language.add(new Option(label, code, false, code === savedLang));
-    }
-    for (const { code, label } of qualities) els.quality.add(new Option(label, code, false, code === savedQuality));
-    const remember = (key, el) => el.addEventListener('change', () => { try { localStorage.setItem(key, el.value); } catch {} });
-    remember('cutline.language', els.language);
-    remember('cutline.quality', els.quality);
-  }
+  const { loadSettings } = CutlineEngineOptions.create({ els, languageNames });
 
   const { openKeys } = CutlineKeysDialog.create({ $, els, toast, showError, panels });
 
-  // ---------- drag and drop ----------
-
-  let dragDepth = 0;
-  window.addEventListener('dragenter', (e) => {
-    if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return;
-    dragDepth++;
-    els.dropHint.hidden = false;
-  });
-  window.addEventListener('dragleave', () => {
-    dragDepth = Math.max(0, dragDepth - 1);
-    if (!dragDepth) els.dropHint.hidden = true;
-  });
-  window.addEventListener('dragover', (e) => e.preventDefault());
-  window.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    dragDepth = 0;
-    els.dropHint.hidden = true;
-    const file = e.dataTransfer?.files?.[0];
-    if (!file || state.busy || !(await confirmDiscard())) return;
-    try {
-      await loadMedia(await cutline.openDroppedFile(file));
-    } catch (err) { showError(err); }
-  });
-
-  cutline.onOpenProjectPath((filePath) => { if (!state.busy) openProject(filePath); });
-
-  cutline.onOpenPath(async (filePath) => {
-    if (state.busy || !(await confirmDiscard())) return;
-    try {
-      await loadMedia(await cutline.openPath(filePath));
-    } catch (err) { showError(err); }
-  });
+  CutlineFileDrop.create({ $, els, state, hasProject, loadMedia, openProject, confirmDiscard, insertMedia, panels, toast, showError });
 
   // ---------- wiring ----------
 
@@ -756,43 +637,7 @@
     commands[name]?.();
   });
 
-  // ---------- timeline tools ----------
-
-  const TOOL_KEYS = { a: 'select', h: 'hand', b: 'blade', r: 'range', y: 'slip' };
-  const TOOL_ICONS = { select: '➤', hand: '✋', blade: '✂', range: '⟷', slip: '⇆' };
-  const TOOL_HINTS = {
-    select: 'Select: click words, pauses and B-roll; with blade splits, click a piece of the clip.',
-    hand: 'Hand: drag the timeline to scroll.',
-    blade: 'Blade: click the timeline to split the clip there.',
-    range: 'Range: drag across the timeline to select a stretch of time, then press ⌫ to cut it.',
-    slip: 'Slip: drag a B-roll video to change which part of it plays.',
-  };
-  function setTool(tool, announce = true) {
-    state.tool = tool;
-    timeline.setTool(tool);
-    $('tool-icon').textContent = TOOL_ICONS[tool];
-    $('tool-btn').title = `Timeline tool: ${tool[0].toUpperCase()}${tool.slice(1)}`;
-    $('tool-menu').querySelectorAll('li').forEach((li) => li.classList.toggle('on', li.dataset.tool === tool));
-    if (announce) toast(TOOL_HINTS[tool]);
-  }
-  $('tool-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    $('tool-menu').hidden = !$('tool-menu').hidden;
-  });
-  $('tool-menu').querySelectorAll('li').forEach((li) => li.addEventListener('click', () => {
-    $('tool-menu').hidden = true;
-    setTool(li.dataset.tool);
-  }));
-  window.addEventListener('mousedown', (e) => { if (!e.target.closest('.tool-picker')) $('tool-menu').hidden = true; });
-  window.addEventListener('keydown', (e) => {
-    if (e.metaKey || e.ctrlKey || e.altKey || state.busy) return;
-    if (e.target.closest?.('input, textarea, select, .editing, [contenteditable="plaintext-only"]')) return;
-    // In the transcript, letters type text; tool keys work everywhere else.
-    if (document.activeElement === els.transcript) return;
-    const tool = TOOL_KEYS[e.key.toLowerCase()];
-    if (tool && hasProject()) setTool(tool);
-  });
-  setTool('select', false);
+  CutlineTimelineTools.create({ $, els, state, timeline, hasProject, toast });
 
   // Closing the window: finish the pending autosave first.
   cutline.onBeforeClose(async () => {

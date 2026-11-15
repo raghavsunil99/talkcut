@@ -209,6 +209,8 @@ Do these in the order listed. 1.1 to 1.3 are the safety net for 1.4.
 7. **Model:** Opus 5.5
 
 #### 1.4 Split `app.js`
+
+**Status: done, committed module by module.** `app.js` went from 131 KB to 29 KB across 18 modules, each with lint and the full test suite green before its commit; the e2e suite grew from 6 to 18 tests to cover the moved code. Deviation from the approach below: leaf modules were moved first and `store.js` was not split out; state, undo and `refresh()` stay in `app.js`, which is now small enough to read. The Android web bundle still assembles; the Android app itself was not run.
 1. **Why:** every feature in Phases 2 and 3 lands in this file.
 2. **Files:** `src/renderer/app.js`, new files in `src/renderer/`, `index.html` (script list).
 3. **Approach:**
