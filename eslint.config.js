@@ -6,7 +6,7 @@ const globals = require('globals');
 const cutlineGlobals = Object.fromEntries([
   'CutlineAppearance', 'CutlineCanvas', 'CutlineCaptions', 'CutlineCrop', 'CutlineEdits', 'CutlineFrame',
   'CutlineHome', 'CutlinePanels', 'CutlineProperties', 'CutlineRenderPlan', 'CutlineSpeakers', 'CutlineText',
-  'CutlineTimeline', 'CutlineTracks',
+  'CutlineTimeline', 'CutlineTracks', 'CutlineKeysDialog',
 ].map((name) => [name, 'readonly']));
 
 const rules = {
