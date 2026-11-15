@@ -1,8 +1,8 @@
 # Editor layout: Talkcut against Descript
 
-Task 2.10 in `PLAN.md`. This is the audit that comes before any restyling: what a Descript user
-would find different in Talkcut's editor, and what I propose to change. Nothing here is built
-yet. Approve, change or strike each numbered item; only approved items get built.
+Task 2.10 in `PLAN.md`. This is the audit that came before any restyling: what a Descript user
+would find different in Talkcut's editor, and what I proposed to change. **All 14 items were
+approved (15 November 2026) and are built;** `PLAN.md` says how each was checked.
 
 **Scope.** This matches Descript's layout and interaction patterns only. Talkcut keeps its own
 name, colours, icons and artwork, and nothing is copied from Descript's screens pixel for pixel.

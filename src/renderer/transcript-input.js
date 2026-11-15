@@ -32,6 +32,13 @@
         showSpeakerMenu(e.clientX, e.clientY + 8, sel ?? labelRange(speakerLabel), id);
         return;
       }
+      const time = e.target.closest('.para-time');
+      if (time) {
+        e.preventDefault();
+        const at = visibleFrom(Number(time.dataset.from));
+        if (at >= 0) { state.caret = at; setSelection(-1, -1); seek(state.words[at].start); }
+        return;
+      }
       const marker = e.target.closest('.del');
       if (marker) {
         e.preventDefault();

@@ -486,6 +486,17 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Opus 5.5
 
 #### 2.10 Descript-style editor layout
+**Status: done.** The audit (`docs/editor-audit.md`) was approved in full and all 14 items are built:
+- **Script.** Studio gives the script half the width at about 70 characters a line; speaker names and each paragraph's edited start time (click to play from there) sit in a left gutter, which folds back above the paragraph when the script is narrow. A toolbar appears above a selection of words: Cut, Restore (when cut words are selected), Correct, Speaker, Add B-roll, Move and New scene. The row of buttons under the title is gone (Find stays as an icon). View → Show Cut Words draws cut words struck through instead of the ⌁ marker.
+- **Scenes** (`scenes.js`, `scene-rail.js`). "/" at the text cursor, the toolbar or the right-click menu starts a scene at a word (kept by word id, saved as `scenes` in the project). Each scene gets a heading in the script (double-click to rename, × to remove the break) and a thumbnail in a rail left of the script; clicking one jumps there, dragging one reorders the scenes using 2.3's move. Moving a scene above the untitled opening part names that part "Opening" so its words stay apart.
+- **Finding commands.** ⌘K opens a palette over every menu command, with shortcuts.
+- **Timeline.** Click the handle on its top edge (or ⌥⌘T, which used to switch between two heights) to collapse it to its bar; drag to resize as before.
+- **Side panel.** Project (name, transcript language, recordings and Add recording to end, canvas size, export loudness), Properties, Captions, Media (with a Text tab for what was Elements), AI tools. It reopens on the panel last used, also after a relaunch.
+- **Top bar.** Home, app name and the project name (click to rename) on the left, undo and redo in the middle, ⌘K, the layout toggles and Export on the right. New, Open, Save, Settings and API keys are in the menus, the palette and the Home screen. Undo and redo are drawn at full strength when enabled.
+- **Under the video** one line ("0:07 of 0:08 · 2 cuts", details on hover) instead of three boxes. Toasts sit under the toolbar instead of over the playback controls.
+- **Workspaces.** All four kept; Studio now starts with the script at half the width.
+- **Checked by.** `test/scenes.test.js` (ranges, add, rename, remove, move, the opening part). `test/e2e/layout.e2e.js`: the plan's acceptance (select a sentence, cut it with the toolbar, add B-roll from the toolbar, export, with no menu use), the gutter (names left of the text, times, click to seek), show cut words through ⌘K and restoring one, collapsing the timeline, the rail order and the side panel remembering its panel across a relaunch, renaming from the top bar, and scenes (start with "/", rename, reorder by dragging in the rail with the export order following, saved, undo, remove). Existing tests moved off the removed toolbar buttons onto ⌘K and the Media Text tab.
+- **Not checked.** Descript's behaviour was described from my knowledge of it, not by running it. The Android bundle was not updated or run. Scene thumbnails come from the timeline's filmstrip, so they appear once it has loaded.
 1. **Why:** you asked for the UI to work like Descript's, so people who know it feel at home.
 2. **Files:** `src/renderer/index.html`, `styles.css`, `appearance.js` (workspaces), `transcript-view.js`, `panels.js`, `timeline.js`, `home.js`.
 3. **Approach:**

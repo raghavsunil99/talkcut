@@ -40,6 +40,7 @@
         item('Cut', '⌫', () => cutSelection()),
         item('Find and replace this…', '⌘F', () => openFind(text)),
         item('Speaker…', '', () => showSpeakerMenu(e.clientX, e.clientY, sel, state.words[sel[0]].speaker)),
+        item('Start a scene here', '/', () => document.getElementById('sel-scene').click()),
         item('Play from here', '', () => { seek(state.words[sel[0]].start); els.video.play(); }),
         item('Copy text', '⌘C', () => navigator.clipboard?.writeText(text)),
       );

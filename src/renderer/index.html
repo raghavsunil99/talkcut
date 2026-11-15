@@ -10,13 +10,10 @@
 <body>
   <header class="toolbar">
     <button id="btn-home" class="btn ghost icon" title="Projects home (⇧⌘H)" aria-label="Projects home">⌂</button>
-    <div class="brand">Talkcut <span class="brand-by">by Raghav</span></div>
+    <div class="brand">Talkcut</div>
+    <h1 id="doc-title" class="doc-title" title="Click to rename the project"></h1>
     <span id="save-status" class="save-status" hidden></span>
-    <div class="toolbar-group">
-      <button id="btn-open" class="btn ghost" title="New project from an audio or video file (⌘N)">New</button>
-      <button id="btn-open-project" class="btn ghost" title="Open a saved project (⇧⌘O)">Open</button>
-      <button id="btn-save" class="btn ghost hidden-tool" title="Save project (⌘S)" disabled>Save</button>
-    </div>
+    <div class="spacer"></div>
     <div class="toolbar-group">
       <button id="btn-undo" class="btn ghost icon" title="Undo (⌘Z)" aria-label="Undo" disabled>↶</button>
       <button id="btn-redo" class="btn ghost icon" title="Redo (⇧⌘Z)" aria-label="Redo" disabled>↷</button>
@@ -30,18 +27,18 @@
       <span>Quality</span>
       <select id="quality"></select>
     </label>
+    <button type="button" class="btn ghost palette-hint" id="btn-palette" title="Find any command (⌘K)">⌘K</button>
     <div class="layout-toggles">
       <button id="btn-toggle-transcript" class="btn ghost icon" title="Show or hide the transcript" aria-label="Transcript">▤</button>
       <button id="btn-toggle-timeline" class="btn ghost icon" title="Show or hide the timeline" aria-label="Timeline">▭</button>
       <button id="btn-toggle-sidebar" class="btn ghost icon" title="Show or hide the side panel" aria-label="Side panel">◧</button>
     </div>
-    <button id="btn-settings" class="btn ghost icon" title="Settings: look, layout and workspaces (⌘,)" aria-label="Settings">⚙︎</button>
-    <button id="btn-keys" class="btn ghost icon" title="API keys (⇧⌘K)" aria-label="API keys">⚿</button>
     <button id="btn-export" class="btn primary" title="Export the edited file (⌘E)" disabled>Export</button>
   </header>
 
   <main class="workspace">
     <section class="transcript-pane">
+      <aside id="scene-rail" class="scene-rail" hidden aria-label="Scenes"></aside>
       <div id="empty" class="empty">
         <div class="empty-card">
           <h1>Edit media by editing text</h1>
@@ -52,15 +49,20 @@
       </div>
       <div id="transcript-wrap" class="transcript-wrap" hidden>
         <div class="transcript-head">
-          <h1 id="doc-title" class="doc-title"></h1>
           <span id="doc-language" class="doc-language"></span>
           <span class="head-tools">
-          <button id="btn-cut" class="btn ghost small" title="Cut selected words, pause or B-roll (⌫)" disabled>Cut</button>
-          <button id="btn-restore" class="btn ghost small" title="Restore selected words (⌘⌫)" disabled>Restore</button>
-          <button type="button" class="btn ghost small" id="btn-correct" title="Fix the selected words' text without cutting anything (Enter, or double-click a word)">Correct</button>
-          <button type="button" class="btn ghost small" id="btn-find" title="Find and replace in the transcript (⌘F)">Find &amp; replace</button>
-          <button type="button" class="btn ghost small" id="btn-speakers" title="Label who is speaking: select words, then pick a speaker">Speakers</button>
+          <button type="button" class="btn ghost icon" id="btn-find" title="Find and replace in the transcript (⌘F)" aria-label="Find and replace">⌕</button>
           </span>
+        </div>
+        <!-- Shown above a selection of words. -->
+        <div id="sel-bar" class="sel-bar" hidden>
+          <button id="btn-cut" class="btn ghost small" title="Cut the selected words (⌫)" disabled>Cut</button>
+          <button id="btn-restore" class="btn ghost small" title="Restore the cut words in the selection (⌘⌫)" disabled>Restore</button>
+          <button type="button" class="btn ghost small" id="btn-correct" title="Fix the words' text without cutting anything (Enter)">Correct</button>
+          <button type="button" class="btn ghost small" id="btn-speakers" title="Who is speaking these words">Speaker</button>
+          <button type="button" class="btn ghost small" id="sel-broll" title="Put a video or photo over these words">Add B-roll</button>
+          <button type="button" class="btn ghost small" id="sel-move" title="Cut these words to move them: click where they go and press ⌘V">Move</button>
+          <button type="button" class="btn ghost small" id="sel-scene" title="Start a new scene with these words (/)">New scene</button>
         </div>
         <ul id="speaker-menu" class="tool-menu speaker-menu" hidden></ul>
         <ul id="word-menu" class="tool-menu speaker-menu" hidden></ul>
@@ -87,15 +89,58 @@
           <div id="audio-name" class="audio-name"></div>
         </div>
       </div>
-      <dl class="stats">
-        <div><dt>Original</dt><dd id="stat-original">—</dd></div>
-        <div><dt>Edited</dt><dd id="stat-edited">—</dd></div>
-        <div><dt>Cuts</dt><dd id="stat-cut">—</dd></div>
-      </dl>
+      <p class="stats" id="stats"><span id="stat-edited">—</span> of <span id="stat-original">—</span> · <span id="stat-cut">—</span></p>
     </section>
 
     <div class="splitter" id="split-sidebar" title="Drag to resize; double-click to reset"></div>
     <aside class="sidebar">
+      <div class="panel" id="panel-project" hidden>
+        <div class="panel-head">
+          <h2>Project</h2>
+        </div>
+        <div class="panel-body props">
+          <section class="prop-group">
+            <h3>Name</h3>
+            <input type="text" class="text-input" id="proj-name" maxlength="80" spellcheck="false">
+            <p class="panel-hint">Press Enter to rename the project file.</p>
+          </section>
+          <section class="prop-group">
+            <h3>Language</h3>
+            <select id="proj-language" class="text-input" title="The language of the transcript: captions use its font"></select>
+          </section>
+          <section class="prop-group">
+            <h3>Recordings</h3>
+            <ul class="proj-sources" id="proj-sources"></ul>
+            <button type="button" class="btn wide" id="proj-add-recording">Add recording to end…</button>
+          </section>
+          <section class="prop-group" id="proj-canvas-group">
+            <h3>Canvas size</h3>
+            <div class="canvas-grid" id="prop-canvas"></div>
+            <div class="prop-row" id="prop-custom" hidden>
+              <label class="prop-field"><span>Width</span><input id="prop-custom-w" class="text-input" type="number" min="240" max="4096" step="2"></label>
+              <button type="button" class="btn ghost icon" id="prop-custom-swap" title="Swap width and height">⇄</button>
+              <label class="prop-field"><span>Height</span><input id="prop-custom-h" class="text-input" type="number" min="240" max="4096" step="2"></label>
+            </div>
+            <p class="panel-hint" id="prop-frame-size"></p>
+            <div class="prop-inline"><span>Background</span>
+              <div class="segmented" id="prop-bgmode"><button data-value="blur" title="A blurred, zoomed copy of your video fills the empty space">Blur</button><button data-value="color" title="A solid colour">Colour</button></div>
+              <input type="color" id="prop-bg">
+            </div>
+            <button type="button" class="btn wide" id="prop-autoframe" title="Find the face and fill a 9:16 frame around it">Auto-frame for 9:16</button>
+          </section>
+          <section class="prop-group">
+            <h3>Export sound</h3>
+            <label class="prop-field"><span>Loudness</span>
+              <select id="prop-loudness" class="text-input">
+                <option value="">Leave as recorded</option>
+                <option value="-14">Social: −14 LUFS (Instagram, YouTube, TikTok)</option>
+                <option value="-16">Podcast: −16 LUFS</option>
+              </select>
+            </label>
+          </section>
+        </div>
+      </div>
+
       <div class="panel" id="panel-captions" hidden>
         <div class="panel-head">
           <h2>Captions</h2>
@@ -228,28 +273,6 @@
             <div class="prop-slider" id="prop-strength-row"><span class="prop-label">Strength</span>
               <input type="range" id="prop-strength"><input type="number" id="prop-strength-num" class="text-input num"><span class="unit">%</span>
             </div>
-            <label class="prop-field"><span>Loudness</span>
-              <select id="prop-loudness" class="text-input">
-                <option value="">Leave as recorded</option>
-                <option value="-14">Social: −14 LUFS (Instagram, YouTube, TikTok)</option>
-                <option value="-16">Podcast: −16 LUFS</option>
-              </select>
-            </label>
-          </section>
-          <section class="prop-group">
-            <h3>Canvas size</h3>
-            <div class="canvas-grid" id="prop-canvas"></div>
-            <div class="prop-row" id="prop-custom" hidden>
-              <label class="prop-field"><span>Width</span><input id="prop-custom-w" class="text-input" type="number" min="240" max="4096" step="2"></label>
-              <button type="button" class="btn ghost icon" id="prop-custom-swap" title="Swap width and height">⇄</button>
-              <label class="prop-field"><span>Height</span><input id="prop-custom-h" class="text-input" type="number" min="240" max="4096" step="2"></label>
-            </div>
-            <p class="panel-hint" id="prop-frame-size"></p>
-            <div class="prop-inline"><span>Background</span>
-              <div class="segmented" id="prop-bgmode"><button data-value="blur" title="A blurred, zoomed copy of your video fills the empty space">Blur</button><button data-value="color" title="A solid colour">Colour</button></div>
-              <input type="color" id="prop-bg">
-            </div>
-            <button type="button" class="btn wide" id="prop-autoframe" title="Find the face and fill a 9:16 frame around it">Auto-frame for 9:16</button>
           </section>
           <section class="prop-group">
             <h3>Size &amp; position</h3>
@@ -294,34 +317,6 @@
         </div>
       </div>
 
-      <div class="panel" id="panel-elements" hidden>
-        <div class="panel-head">
-          <h2>Elements</h2>
-        </div>
-        <div class="panel-body">
-          <p class="panel-hint">Click a style to add text at the playhead. It goes on an overlay track: drag it on the video to place it, drag a corner to size it, and drag its ends on the timeline to set how long it shows.</p>
-          <div class="text-presets" id="text-presets"></div>
-          <section class="prop-group" id="text-edit" hidden>
-            <h3>Selected text</h3>
-            <textarea id="text-content" class="text-input" rows="3" spellcheck="false"></textarea>
-            <div class="prop-row">
-              <label class="prop-field"><span>Text</span><input type="color" id="text-color"></label>
-              <label class="prop-field"><span>Accent</span><input type="color" id="text-accent"></label>
-              <label class="prop-field"><span>Box</span><input type="color" id="text-bg"></label>
-              <label class="prop-check"><input type="checkbox" id="text-bg-on"> Box</label>
-            </div>
-            <div class="segmented" id="text-align">
-              <button data-value="left">Left</button><button data-value="center">Center</button><button data-value="right">Right</button>
-            </div>
-            <div class="prop-row">
-              <label class="prop-check"><input type="checkbox" id="text-upper"> ALL CAPS</label>
-              <label class="prop-check"><input type="checkbox" id="text-shadow"> Shadow</label>
-            </div>
-            <p class="panel-hint">Each new line is a line of text. In titles and lower thirds the second line uses the accent colour.</p>
-          </section>
-        </div>
-      </div>
-
       <div class="panel" id="panel-media" hidden>
         <div class="panel-head">
           <h2>Media</h2>
@@ -329,6 +324,7 @@
         <div class="segmented wide" id="media-tabs">
           <button data-tab="mine" class="on">My media</button>
           <button data-tab="stock">Stock</button>
+          <button data-tab="text">Text</button>
         </div>
         <div class="panel-body" id="media-mine">
           <div class="add-as"><span>Add videos and photos as</span>
@@ -365,15 +361,37 @@
             <p class="panel-hint credit">Stock media by <a href="#" id="pexels-credit">Pexels</a>. <a href="#" id="pexels-change">Change key</a></p>
           </div>
         </div>
+        <div class="panel-body" id="media-text" hidden>
+          <p class="panel-hint">Click a style to add text at the playhead. It goes on an overlay track: drag it on the video to place it, drag a corner to size it, and drag its ends on the timeline to set how long it shows.</p>
+          <div class="text-presets" id="text-presets"></div>
+          <section class="prop-group" id="text-edit" hidden>
+            <h3>Selected text</h3>
+            <textarea id="text-content" class="text-input" rows="3" spellcheck="false"></textarea>
+            <div class="prop-row">
+              <label class="prop-field"><span>Text</span><input type="color" id="text-color"></label>
+              <label class="prop-field"><span>Accent</span><input type="color" id="text-accent"></label>
+              <label class="prop-field"><span>Box</span><input type="color" id="text-bg"></label>
+              <label class="prop-check"><input type="checkbox" id="text-bg-on"> Box</label>
+            </div>
+            <div class="segmented" id="text-align">
+              <button data-value="left">Left</button><button data-value="center">Center</button><button data-value="right">Right</button>
+            </div>
+            <div class="prop-row">
+              <label class="prop-check"><input type="checkbox" id="text-upper"> ALL CAPS</label>
+              <label class="prop-check"><input type="checkbox" id="text-shadow"> Shadow</label>
+            </div>
+            <p class="panel-hint">Each new line is a line of text. In titles and lower thirds the second line uses the accent colour.</p>
+          </section>
+        </div>
       </div>
     </aside>
 
     <nav class="rail">
-      <button class="rail-btn" data-panel="ai" title="AI tools"><span class="rail-icon">✦</span><span>AI tools</span></button>
-      <button class="rail-btn" data-panel="properties" title="Properties"><span class="rail-icon">⚙︎</span><span>Properties</span></button>
+      <button class="rail-btn" data-panel="project" title="Project"><span class="rail-icon">◫</span><span>Project</span></button>
+      <button class="rail-btn" data-panel="properties" title="Properties of what is selected"><span class="rail-icon">⚙︎</span><span>Properties</span></button>
       <button class="rail-btn" data-panel="captions" title="Captions"><span class="rail-icon">CC</span><span>Captions</span></button>
-      <button class="rail-btn" data-panel="elements" title="Text and titles"><span class="rail-icon">T</span><span>Elements</span></button>
-      <button class="rail-btn" data-panel="media" title="Media"><span class="rail-icon">▦</span><span>Media</span></button>
+      <button class="rail-btn" data-panel="media" title="Media, text and titles"><span class="rail-icon">▦</span><span>Media</span></button>
+      <button class="rail-btn" data-panel="ai" title="AI tools"><span class="rail-icon">✦</span><span>AI tools</span></button>
     </nav>
   </main>
 
@@ -660,10 +678,17 @@
       </div>
     </div>
   </div>
+  <div id="palette" class="dialog-backdrop palette-backdrop" hidden>
+    <div class="dialog palette" role="dialog" aria-label="Commands">
+      <input type="text" id="palette-input" class="text-input" placeholder="Type a command…" spellcheck="false" autocomplete="off">
+      <ul id="palette-list" class="palette-list"></ul>
+    </div>
+  </div>
   <div id="drop-hint" class="drop-hint" hidden>Drop to open</div>
   <div id="toast" class="toast" hidden></div>
 
   <script src="edits.js"></script>
+  <script src="scenes.js"></script>
   <script src="review.js"></script>
   <script src="frame.js"></script>
   <script src="tracks.js"></script>
@@ -690,6 +715,8 @@
   <script src="edit-commands.js"></script>
   <script src="transcript-view.js"></script>
   <script src="transcript-input.js"></script>
+  <script src="selection-bar.js"></script>
+  <script src="scene-rail.js"></script>
   <script src="workspace.js"></script>
   <script src="platform-text.js"></script>
   <script src="timeline-tools.js"></script>
@@ -697,6 +724,8 @@
   <script src="file-drop.js"></script>
   <script src="engine-options.js"></script>
   <script src="review-dialog.js"></script>
+  <script src="palette.js"></script>
+  <script src="project-panel.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

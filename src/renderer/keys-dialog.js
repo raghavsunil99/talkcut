@@ -232,7 +232,7 @@
     $('keys-close').addEventListener('click', closeKeys);
     keysDialog.addEventListener('mousedown', (e) => { if (e.target === keysDialog) closeKeys(); });
     keysDialog.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKeys(); });
-    $('btn-keys').addEventListener('click', () => openKeys());
+    $('btn-keys')?.addEventListener('click', () => openKeys());
 
     els.quality.addEventListener('focus', () => { if (els.quality.value !== 'cloud') qualityBeforeCloud = els.quality.value; });
     els.quality.addEventListener('change', async () => {
