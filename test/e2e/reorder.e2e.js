@@ -153,3 +153,87 @@ test('drag selected words to a new place; a click on the selection still just pl
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('add a second recording: it plays on from the first, its words can move, and it exports and reopens', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  const file = H.makeProject(dir, H.makeVideo(dir));
+  const second = H.makeVideo(dir, { name: 'second.mp4', seconds: 3, size: '240x240' });
+  let { app, page } = await H.launch(dir);
+  try {
+    await H.openFromHome(page);
+    await page.evaluate(([p]) => window.cutlineTest.addRecording(p, [{ text: 'nine', start: 0.5, end: 0.9 }, { text: 'ten', start: 1.5, end: 1.9 }]), [second]);
+    await H.until(async () => (await shown(page)).join(' ') === 'one two three four five six seven eight nine ten', 'the added words');
+    assert.ok(Math.abs(await state(page, 's.media.duration') - 10) < 0.06);
+    assert.deepEqual(await state(page, 's.media.sources.map((x) => [x.name, x.offset])'), [['clip.mp4', 0], ['second.mp4', 7]]);
+    assert.deepEqual(await state(page, 's.words.slice(8).map((w) => [w.id, w.start])'), [[9, 7.5], [10, 8.5]]);
+    assert.equal(await state(page, 's.order'), null, 'still played straight through');
+
+    // Playback runs off the end of the first file into the second.
+    await page.locator('#transcript .w[data-i="7"]').click({ position: { x: 2, y: 6 } }); // "eight", 5.8 s
+    await page.click('#btn-play');
+    await H.until(async () => (await page.locator('#time-current').textContent()) >= '0:08.0', 'playback to cross into the second recording', 20_000);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('video.joined-video')).visibility), 'visible');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('video')).visibility), 'hidden');
+    await page.click('#btn-play');
+
+    // Move the second recording's words to the very start.
+    await H.selectWords(page, 8, 9);
+    await page.keyboard.press('ControlOrMeta+x');
+    await clickBefore(page, 0);
+    await page.keyboard.press('ControlOrMeta+v');
+    await H.until(async () => (await shown(page)).join(' ') === 'nine ten one two three four five six seven eight', 'the move');
+    assert.deepEqual(await state(page, 's.kept'), [[7.5, 10], [0, 7.5]]);
+
+    const saved = await H.until(() => { const p = H.readProject(file); return p.order && p.media.sources ? p : null; }, 'the autosave');
+    assert.deepEqual(saved.media.sources.map((x) => [path.basename(x.path), x.duration]), [['clip.mp4', 7], ['second.mp4', 3]]);
+    assert.deepEqual(saved.order, [[7.5, 10], [0, 7.5]]);
+
+    await page.click('#btn-export');
+    await page.click('#export-go');
+    await H.until(async () => /Exported/.test(await page.locator('#toast').textContent()), 'the export to finish', 60_000);
+    const out = await probe(path.join(dir, 'export.mp4'));
+    assert.ok(Math.abs(out.duration - 10) < 0.2, `exported ${out.duration} s, expected 10 s`);
+    assert.deepEqual([out.width, out.height], [320, 240]);
+    await H.closeApp(app);
+
+    ({ app, page } = await H.launch(dir));
+    await H.openFromHome(page);
+    assert.equal((await shown(page)).join(' '), 'nine ten one two three four five six seven eight');
+    assert.equal(await state(page, 's.media.sources.length'), 2);
+    assert.equal(await page.locator('video.joined-video').count(), 1);
+
+    // Cuts still work on the reopened project: cutting "nine" removes its second of the added file.
+    await H.selectWords(page, 0, 0);
+    await page.keyboard.press('Backspace');
+    assert.deepEqual(await state(page, 's.kept'), [[8.5, 10], [0, 7.5]]);
+  } finally {
+    await H.closeApp(app);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('undo takes an added recording out again', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  H.makeProject(dir, H.makeVideo(dir));
+  const second = H.makeVideo(dir, { name: 'second.mp4', seconds: 3 });
+  const { app, page } = await H.launch(dir);
+  try {
+    await H.openFromHome(page);
+    await page.evaluate(([p]) => window.cutlineTest.addRecording(p, [{ text: 'nine', start: 0.5, end: 0.9 }]), [second]);
+    await H.until(async () => (await shown(page)).length === 9, 'the added word');
+    await page.click('#btn-undo');
+    await H.until(async () => (await shown(page)).length === 8, 'the undo');
+    assert.equal(await state(page, 's.media.sources'), undefined);
+    assert.equal(await state(page, 's.media.duration'), 7);
+    assert.equal(await page.locator('video.joined-video').count(), 0);
+    await page.click('#btn-redo');
+    await H.until(async () => (await shown(page)).length === 9, 'the redo');
+    assert.equal(await page.locator('video.joined-video').count(), 1);
+    // The same file cannot be added twice.
+    await page.evaluate(([p]) => window.cutlineTest.addRecording(p, []), [second]);
+    assert.match(await page.locator('#toast').textContent(), /already in this project/);
+  } finally {
+    await H.closeApp(app);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

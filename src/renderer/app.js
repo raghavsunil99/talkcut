@@ -1,4 +1,4 @@
-/* global CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
+/* global CutlinePlayer, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
 (() => {
   const E = CutlineEdits;
   const C = CutlineCaptions;
@@ -26,7 +26,7 @@
     docTitle: $('doc-title'),
     docLanguage: $('doc-language'),
     player: $('player'),
-    video: $('video'),
+    video: CutlinePlayer.create($('video')), // behaves like the <video>; see player.js
     layers: $('overlay-layers'),
     captionLayer: $('caption-layer'),
     audioArt: $('audio-art'),
@@ -65,7 +65,10 @@
   };
 
   const state = {
-    media: null, // { path, url, name, duration, hasVideo, hasAudio, width, height }
+    // { path, url, name, duration, hasVideo, hasAudio, width, height }. With recordings added to
+    // the end, `duration` is the total and `sources` lists every file: [{ path, url, name,
+    // duration, offset, ... }], the first being this one. Times everywhere run through all of them.
+    media: null,
     words: [],
     language: null, // what the transcript is in, e.g. 'te'
     speakers: {}, // speaker id -> name, when words are labelled
@@ -420,7 +423,7 @@
   // ---------- edits ----------
 
   function snapshot() {
-    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
+    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -429,6 +432,8 @@
     state.deleted = snap.deleted;
     state.cutGaps = snap.cutGaps;
     if ('order' in snap) state.order = snap.order;
+    // Undoing or redoing "Add Recording to End" changes the files behind the project.
+    if (snap.media && state.media && snap.media !== state.media && snap.media.path === state.media.path) { state.media = snap.media; mod.applyMedia?.(); }
     state.playK = -1;
     if (snap.tracks) state.tracks = snap.tracks;
     if (snap.clip) state.clip = snap.clip;
@@ -440,11 +445,11 @@
     state.textVersion++;
   }
 
-  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
+  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
     state.undo.push(snapshot());
     if (state.undo.length > 500) state.undo.shift();
     state.redo = [];
-    restore({ words, deleted, cutGaps, order, tracks, clip, splits, rangeCuts, captions, speakers });
+    restore({ words, deleted, cutGaps, order, media, tracks, clip, splits, rangeCuts, captions, speakers });
     setDirty(true);
     refresh();
   }
@@ -622,7 +627,9 @@
     });
   }
 
-  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled });
+  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home, addRecording, applyMedia } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, commit, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled });
+
+  mod.applyMedia = applyMedia;
 
   const { autoFrame } = CutlineAiTools.create({ $, els, state, F, hasProject, duration, commit, refresh, toast, showError, showOverlay, hideOverlay, openFind, showSpeakerMenu, selectionRange });
 
@@ -666,6 +673,7 @@
       'new-project': openMedia,
       home: showHome,
       'duplicate-project': duplicateProject,
+      'add-recording': () => addRecording(),
       save: () => save(),
       'save-as': () => save(true),
       export: openExport,
@@ -727,6 +735,7 @@
       insertBroll: async (p) => insertMedia(await cutline.describeBroll(p)),
       insertText,
       insertAudio: async (p) => insertMedia(await cutline.describeAudio(p)),
+      addRecording: async (p, transcript) => addRecording(await cutline.openPath(p), { transcript }),
       openProject: (p) => openProject(p),
       exportMedia,
       saveCaptionsFile,

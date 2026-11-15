@@ -12,7 +12,7 @@
       refresh();
       showOverlay('Finding the speaker…', 'Looking for faces across the video.', null);
       try {
-        const face = await cutline.findFaces(state.media.path, duration());
+        const face = await cutline.findFaces(state.media.path, state.media.sources?.[0].duration ?? duration());
         if (!face) {
           toast('No face found in most of the video, so the framing was left as it is. Use Fill and drag the video to frame it yourself.', { error: true, ms: 7000 });
           return;

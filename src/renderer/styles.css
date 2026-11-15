@@ -890,3 +890,6 @@ body.cropping .overlay-layers, body.cropping .caption-layer, body.cropping .canv
 .transcript.moving-words { cursor: grabbing; }
 .transcript .w.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
 .transcript .w.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
+
+/* A recording added to the end plays in the first one's box, fitted inside it. */
+.pic-inner video.joined-video { object-fit: contain; background: #000; }

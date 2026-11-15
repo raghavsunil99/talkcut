@@ -193,7 +193,8 @@ handle('media:options', () => ({
   qualities: Object.entries({ ...MODELS, ...CLOUD_QUALITY }).map(([code, { label }]) => ({ code, label })),
 }));
 
-handle('media:timeline', async (_event, { filePath, duration, hasVideo }) => {
+// Waveform and thumbnails for one file.
+async function timelineAssets(filePath, duration, hasVideo) {
   const [waveform, frames] = await Promise.all([
     computePeaks(filePath),
     (async () => {
@@ -207,6 +208,25 @@ handle('media:timeline', async (_event, { filePath, duration, hasVideo }) => {
     })(),
   ]);
   return { ...waveform, frames };
+}
+
+// A project of several recordings played end to end gets one waveform and one filmstrip, each
+// file's part placed at its offset.
+handle('media:timeline', async (_event, { filePath, duration, hasVideo, sources }) => {
+  if (!sources || sources.length < 2) return timelineAssets(filePath, duration, hasVideo);
+  const peaks = [];
+  const frames = [];
+  let perSecond = 50;
+  for (const s of sources) {
+    const part = await timelineAssets(s.path, s.duration, hasVideo);
+    perSecond = part.perSecond;
+    const at = Math.round(s.offset * perSecond);
+    const count = Math.round(s.duration * perSecond);
+    for (let i = 0; i < count; i++) peaks[at + i] = part.peaks[i] ?? 0;
+    for (const f of part.frames) if (f.t < s.duration) frames.push({ ...f, t: f.t + s.offset });
+  }
+  for (let i = 0; i < peaks.length; i++) peaks[i] ??= 0;
+  return { perSecond, peaks, frames };
 });
 
 // The export or transcription running now, so the page can cancel it (one at a time).
@@ -534,8 +554,13 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
     }
     const job = startJob();
     try {
+      const files = media.sources?.length > 1 ? media.sources.map((s) => ({ path: s.path, offset: s.offset, duration: s.duration })) : null;
+      for (const f of files ?? []) {
+        await fs.access(f.path).catch(() => { throw new Error(`The recording “${path.basename(f.path)}” that was added to this project can't be found. It may have been moved or deleted.`); });
+      }
       await renderEdit({
         signal: job.signal,
+        sources: files,
         input: media.path,
         output: filePath,
         ranges,
@@ -659,8 +684,43 @@ handle('project:save', async (_event, { project, filePath, saveAs, quiet }) => {
   return target;
 });
 
+// Ask where a file went. Resolves to the new path, or null.
+async function locateFile(oldPath, message) {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['Locate…', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    message,
+    detail: `It may have been moved or renamed. It was at:\n${oldPath}`,
+  });
+  if (response !== 0) return null;
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: `Locate ${path.basename(oldPath)}`,
+    defaultPath: path.dirname(oldPath),
+    properties: ['openFile'],
+    filters: [{ name: 'Audio and video', extensions: MEDIA_EXTENSIONS }],
+  });
+  return canceled || !filePaths[0] ? null : filePaths[0];
+}
+
+// The media of a project with recordings added to the end: every file described, each at the
+// offset the project was saved with (word times depend on those, so they are not measured again).
+async function describeSources(media, saved) {
+  if (!Array.isArray(saved.sources) || saved.sources.length < 2) return media;
+  let offset = 0;
+  const sources = [];
+  for (const [n, s] of saved.sources.entries()) {
+    const info = n === 0 ? media : await describeMedia(s.path);
+    const duration = Number(s.duration) || info.duration;
+    sources.push({ path: info.path, url: info.url, name: info.name, hasVideo: info.hasVideo, hasAudio: info.hasAudio, width: info.width, height: info.height, duration, offset });
+    offset += duration;
+  }
+  return { ...media, duration: offset, sources };
+}
+
 async function openPayload(filePath, project) {
-  const media = await describeMedia(project.media.path);
+  const media = await describeSources(await describeMedia(project.media.path), project.media);
   return {
     filePath,
     media,
@@ -740,6 +800,15 @@ handle('project:open', async (_event, { filePath } = {}) => {
     project.media = { ...project.media, path: filePaths[0], name: path.basename(filePaths[0]) };
     await projects.save(target, project);
   }
+  // Recordings added to the end of the project, if any have gone missing.
+  for (const s of (project.media.sources ?? []).slice(1)) {
+    if (await fs.access(s.path).then(() => true, () => false)) continue;
+    const found = await locateFile(s.path, `Can’t find the recording “${path.basename(s.path)}”, added to this project.`);
+    if (!found) return null;
+    Object.assign(s, { path: found, name: path.basename(found) });
+    await projects.save(target, project);
+  }
+  if (project.media.sources?.length) project.media.sources[0].path = project.media.path;
   await relinkMissingTrackFiles(target, project);
   await remember(target, project);
   return openPayload(target, project);
@@ -789,6 +858,7 @@ async function buildMenu() {
         { label: 'Open Project…', accelerator: 'CmdOrCtrl+Shift+O', click: command('open-project') },
         { label: 'Open Recent', submenu: recentMenu.length ? recentMenu : [{ label: 'No recent projects', enabled: false }] },
         { label: 'Duplicate Project', click: command('duplicate-project') },
+        { label: 'Add Recording to End…', click: command('add-recording') },
         { type: 'separator' },
         { label: 'Save Project', accelerator: 'CmdOrCtrl+S', click: command('save') },
         { label: 'Save Project As…', accelerator: 'CmdOrCtrl+Shift+S', click: command('save-as') },

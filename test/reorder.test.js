@@ -287,6 +287,49 @@ test('exported video plays the moved piece first, picture and length exact', asy
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('two recordings: each range is read from its own file, at that file\'s own time', () => {
+  const sources = [{ path: 'a.mp4', offset: 0, duration: 4 }, { path: 'b.mp4', offset: 4, duration: 3 }];
+  const { args, total } = buildRenderArgs({ input: 'a.mp4', sources, output: 'out.mp4', ranges: [[5, 7], [1, 4.5]], hasVideo: true, hasAudio: true, duration: 7, width: 320, height: 240, fps: 30, filterPath: (p) => p });
+  const inputs = args.filter((a, i) => args[i - 1] === '-i');
+  assert.deepEqual(inputs, ['b.mp4', 'a.mp4', 'b.mp4'], 'the range across the join is cut in two');
+  const graph = args[args.indexOf('-filter_complex') + 1];
+  assert.match(graph, /concat=n=3/);
+  assert.match(graph, /\[s0_0\]trim=start=1\.000000:end=3\.000000/, '5–7 s is 1–3 s of the second file');
+  assert.match(graph, /scale=320:240:force_original_aspect_ratio=decrease,pad=320:240/);
+  assert.match(graph, /aformat=sample_rates=48000:channel_layouts=stereo/);
+  assert.equal(total, 5.5);
+  // One recording: nothing about the plan changes.
+  const one = buildRenderArgs({ input: 'a.mp4', output: 'out.mp4', ranges: [[1, 2]], hasVideo: true, hasAudio: true, duration: 7, width: 320, height: 240, fps: 30, filterPath: (p) => p });
+  assert.doesNotMatch(one.args[one.args.indexOf('-filter_complex') + 1], /pad=|aformat/);
+});
+
+test('two recordings of different sizes export as one video, in the edit\'s order', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cutline-join-'));
+  try {
+    const make = (name, color, size, rate, tone) => {
+      const out = path.join(dir, name);
+      execFileSync(ffmpeg, ['-hide_banner', '-y', '-f', 'lavfi', '-i', `color=c=${color}:s=${size}:r=${rate}:d=2`, '-f', 'lavfi', '-i', `sine=frequency=${tone}:duration=2:sample_rate=${tone === 300 ? 48000 : 44100}`, '-pix_fmt', 'yuv420p', '-g', '15', out], { stdio: 'ignore' });
+      return out;
+    };
+    const a = make('a.mp4', 'red', '160x120', 30, 300);
+    const b = make('b.mp4', 'blue', '120x120', 25, 500); // another shape, frame rate and sample rate
+    const out = path.join(dir, 'out.mp4');
+    const sources = [{ path: a, offset: 0, duration: 2 }, { path: b, offset: 2, duration: 2 }];
+    // The second recording first, then the first: 4 s in all.
+    await renderEdit({ input: a, sources, output: out, ranges: [[2, 4], [0, 2]], hasVideo: true, hasAudio: true, duration: 4, width: 160, height: 120, fps: 30 });
+    const info = await probe(out);
+    assert.ok(Math.abs(info.duration - 4) < 0.08, `duration ${info.duration}`);
+    assert.deepEqual([info.width, info.height], [160, 120]);
+    const isBlue = ([r, , bl]) => bl > 150 && r < 100;
+    const isRed = ([r, , bl]) => r > 150 && bl < 100;
+    const isBlack = ([r, g, bl]) => r < 40 && g < 40 && bl < 40;
+    assert.ok(isBlue(await pixelAt(out, 0.5, 80, 60)), 'the second recording plays first');
+    assert.ok(isBlack(await pixelAt(out, 0.5, 6, 60)), 'fitted inside the frame with bars, not stretched');
+    assert.ok(isRed(await pixelAt(out, 2.5, 80, 60)), 'then the first');
+    assert.ok(isRed(await pixelAt(out, 3.9, 6, 60)));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('a version 2 project is upgraded on open and the old file is kept as a backup', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cutline-v3-'));
   try {

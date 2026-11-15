@@ -64,9 +64,10 @@
         $('stage').prepend(bgVideo);
       }
       bgVideo.hidden = false;
-      if (bgVideo.getAttribute('src') !== state.media.url) bgVideo.src = state.media.url;
+      const url = els.video.activeUrl ?? state.media.url;
+      if (bgVideo.getAttribute('src') !== url) bgVideo.src = url;
       bgVideo.style.transform = `scale(${L.props.flipH ? -1 : 1}, ${L.props.flipV ? -1 : 1}) rotate(${L.rotate}deg)`;
-      if (Math.abs(bgVideo.currentTime - els.video.currentTime) > 0.25) bgVideo.currentTime = els.video.currentTime;
+      if (Math.abs(bgVideo.currentTime - els.video.localTime) > 0.25) bgVideo.currentTime = els.video.localTime;
       bgVideo.playbackRate = els.video.playbackRate;
       if (els.video.paused) bgVideo.pause();
       else if (bgVideo.paused) bgVideo.play().catch(() => {});
@@ -78,7 +79,9 @@
     const enhancedUrls = new Map(); // media path -> url, or a pending promise
     function enhancedReady() {
       const url = state.media && enhancedUrls.get(state.media.path);
-      return state.clip.enhance && typeof url === 'string' ? url : null;
+      // With a second recording added, the cleaned preview (made from the first file only) is
+      // off; the export still cleans the whole edit.
+      return state.clip.enhance && typeof url === 'string' && !state.media.sources ? url : null;
     }
     function prepareEnhanced() {
       const media = state.media;
@@ -113,7 +116,7 @@
         try {
           const ctx = new AudioContext();
           audioGain = ctx.createGain();
-          ctx.createMediaElementSource(els.video).connect(audioGain).connect(ctx.destination);
+          ctx.createMediaElementSource(els.video.element).connect(audioGain).connect(ctx.destination);
         } catch (err) { console.error(err); }
       }
       if (audioGain) {
