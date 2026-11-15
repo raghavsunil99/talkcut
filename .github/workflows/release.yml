@@ -1,0 +1,36 @@
+name: release
+
+# Push a tag like talkcut-1.0.4 (after raising "version" in package.json to 1.0.4) and this builds
+# the Mac app and attaches it to a DRAFT release. Look at the draft, then publish it: publishing is
+# what makes it the "latest" release that installed copies tell their users about.
+on:
+  push:
+    tags: ['talkcut-*']
+
+jobs:
+  mac:
+    runs-on: macos-14 # Apple silicon: the app is built for arm64
+    permissions:
+      contents: write # to create the draft release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The tag must match package.json
+        run: test "talkcut-$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - run: npm run lint
+      - run: npm test
+      # The speech engine and the face finder are built here, as on a developer's Mac (see README).
+      - run: npm run build:whisper
+      - run: npm run build:facedetect
+      - run: npm run dist:mac
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            dist/*.dmg
+            build/HOW TO INSTALL TALKCUT.txt

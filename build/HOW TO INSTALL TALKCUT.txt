@@ -36,6 +36,10 @@ plus about 2 GB of free space, and internet for transcription.
    blocked" click  Open Anyway  → enter your Mac password → Open.
    You only do this once.
 
+   TO UPDATE LATER: when the Projects screen says "Talkcut ... is available", click Download,
+   open the new .dmg and drag Talkcut by Raghav onto Applications again (choose Replace).
+   Your projects are not touched. If the Mac blocks the new version, do "Open Anyway" again.
+
 
 1C. INSTALL ON ANDROID
 ----------------------

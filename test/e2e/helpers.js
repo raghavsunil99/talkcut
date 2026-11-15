@@ -62,7 +62,7 @@ function makeProject(dir, video, extra = {}) {
 
 const readProject = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 
-async function launch(dir, { args = [] } = {}) {
+async function launch(dir, { args = [], env = {} } = {}) {
   const app = await _electron.launch({
     args: [ROOT, ...args],
     cwd: ROOT,
@@ -72,6 +72,7 @@ async function launch(dir, { args = [] } = {}) {
       CUTLINE_USER_DATA: dir,
       CUTLINE_PROJECTS_DIR: path.join(dir, 'projects'),
       CUTLINE_TEST_EXPORT: path.join(dir, 'export.mp4'),
+      ...env,
     },
   });
   const page = await app.firstWindow();

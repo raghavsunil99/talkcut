@@ -319,6 +319,8 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Sonnet 5.5
 
 #### 1.9 Update notice (no signing)
+
+**Status: done; the release workflow has not been run.** The Projects screen shows "Talkcut X is available (you have Y)" with Download (opens the release page) and Later (hides that version until the next release). `src/updates.js` reads GitHub's latest-release call at most once a day, with only a plain request named "Talkcut"; offline, rate limits, odd answers and links outside this repository are all silent. Checked against the live API: an installed 1.0.2 is told about 1.0.3, 1.0.3 is told nothing. Unit tests cover version comparison, caching, failures, dismissal and link checks; e2e tests (against a local stand-in for GitHub) cover the notice, Download, Later across a relaunch, same or older version, a 403, a hostile link and a refused connection. `.github/workflows/release.yml` builds the dmg from a `talkcut-*` tag onto a draft release, so nothing becomes "latest" until you publish it; it cannot be tested without pushing a tag, and it builds whisper.cpp from source, so expect the first run to need a fix or two.
 1. **Why:** you chose not to pay for an Apple Developer account, so the app stays ad-hoc signed and users need a way to learn about new versions.
 2. **Files:** `src/main.js`, `src/renderer/home.js`, new release workflow.
 3. **Approach:**
