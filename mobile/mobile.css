@@ -1,13 +1,22 @@
 /* Talkcut on Android: phone layout on top of the desktop styles. On a tablet held sideways
    (wider than 900 px) the desktop layout is kept. */
 
-@font-face { font-family: "Noto Sans"; src: url("fonts/NotoSans.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Telugu"; src: url("fonts/NotoSansTelugu.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Tamil"; src: url("fonts/NotoSansTamil.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Malayalam"; src: url("fonts/NotoSansMalayalam.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Kannada"; src: url("fonts/NotoSansKannada.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Devanagari"; src: url("fonts/NotoSansDevanagari.ttf"); font-weight: 100 900; }
-@font-face { font-family: "Noto Sans Bengali"; src: url("fonts/NotoSansBengali.ttf"); font-weight: 100 900; }
+
+/* The same font files as the desktop (assets/fonts), copied next to this page by build-android-web.js. */
+@font-face { font-family: "Noto Sans"; src: url("fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Telugu"; src: url("fonts/NotoSansTelugu-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Telugu"; src: url("fonts/NotoSansTelugu-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("fonts/NotoSansDevanagari-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("fonts/NotoSansDevanagari-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Bengali"; src: url("fonts/NotoSansBengali-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Bengali"; src: url("fonts/NotoSansBengali-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Kannada"; src: url("fonts/NotoSansKannada-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Kannada"; src: url("fonts/NotoSansKannada-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Tamil"; src: url("fonts/NotoSansTamil-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Tamil"; src: url("fonts/NotoSansTamil-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Malayalam"; src: url("fonts/NotoSansMalayalam-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Malayalam"; src: url("fonts/NotoSansMalayalam-Bold.ttf"); font-weight: 700; }
 
 :root[data-platform="android"] body { font-family: "Noto Sans", "Noto Sans Telugu", sans-serif; -webkit-tap-highlight-color: transparent; }
 :root[data-platform="android"] .transcript { font-family: var(--transcript-font, "Noto Sans", "Noto Sans Telugu", "Noto Sans Tamil", "Noto Sans Malayalam", sans-serif); }

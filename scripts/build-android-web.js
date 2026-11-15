@@ -13,7 +13,7 @@ for (const f of fs.readdirSync(path.join(root, 'src', 'renderer'))) if (f !== 'i
 copy('mobile/bridge.js', 'bridge.js');
 copy('mobile/touch.js', 'touch.js');
 copy('mobile/mobile.css', 'mobile.css');
-copy('mobile/fonts', 'fonts');
+copy('assets/fonts', 'fonts');
 copy('node_modules/@ffmpeg/ffmpeg/dist/umd/ffmpeg.js', 'vendor/ffmpeg/ffmpeg.js');
 copy('node_modules/@ffmpeg/ffmpeg/dist/umd/814.ffmpeg.js', 'vendor/ffmpeg/814.ffmpeg.js');
 copy('node_modules/@ffmpeg/core/dist/umd/ffmpeg-core.js', 'vendor/ffmpeg/ffmpeg-core.js');

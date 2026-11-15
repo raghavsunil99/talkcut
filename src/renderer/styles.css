@@ -1,3 +1,20 @@
+/* Caption and title fonts: the same Noto Sans files the export uses (assets/fonts, SIL OFL). The
+   export can draw two weights, so the preview does too: Regular (400) and Bold (700). */
+@font-face { font-family: "Noto Sans"; src: url("../../assets/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../assets/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Telugu"; src: url("../../assets/fonts/NotoSansTelugu-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Telugu"; src: url("../../assets/fonts/NotoSansTelugu-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("../../assets/fonts/NotoSansDevanagari-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("../../assets/fonts/NotoSansDevanagari-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Bengali"; src: url("../../assets/fonts/NotoSansBengali-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Bengali"; src: url("../../assets/fonts/NotoSansBengali-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Kannada"; src: url("../../assets/fonts/NotoSansKannada-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Kannada"; src: url("../../assets/fonts/NotoSansKannada-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Tamil"; src: url("../../assets/fonts/NotoSansTamil-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Tamil"; src: url("../../assets/fonts/NotoSansTamil-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans Malayalam"; src: url("../../assets/fonts/NotoSansMalayalam-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans Malayalam"; src: url("../../assets/fonts/NotoSansMalayalam-Bold.ttf"); font-weight: 700; }
+
 :root {
   --bg: #1b1a1f;
   --panel: #222127;

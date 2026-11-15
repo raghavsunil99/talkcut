@@ -225,28 +225,27 @@ async function renderEdit({ onProgress, signal, ...options }) {
   });
 }
 
-// libass only looks in the fonts folder it is given; link the macOS fonts that cover the
-// caption scripts (Telugu, Devanagari, Bangla, Kannada, Tamil, Malayalam, Latin) into one.
-const CAPTION_FONT_FILES = [
-  '/System/Library/Fonts/KohinoorTelugu.ttc',
-  '/System/Library/Fonts/Kohinoor.ttc',
-  '/System/Library/Fonts/KohinoorBangla.ttc',
-  '/System/Library/Fonts/NotoSansKannada.ttc',
-  '/System/Library/Fonts/Supplemental/Tamil Sangam MN.ttc',
-  '/System/Library/Fonts/Supplemental/Malayalam Sangam MN.ttc',
-  '/System/Library/Fonts/Avenir Next.ttc',
-];
+// The caption fonts (Noto Sans, SIL Open Font License) ship with the app in assets/fonts: the
+// same files in the preview and here, so export never depends on fonts installed on the Mac.
+// In the installed app they sit in app.asar.unpacked, where libass can read them.
+const BUNDLED_FONTS = path.join(__dirname, '..', 'assets', 'fonts').replace('app.asar', 'app.asar.unpacked');
+const FONT_FILES = Object.keys(require('./renderer/captions').FONT_FILES);
 
-// Windows: Nirmala UI covers Telugu and the other Indian scripts; Segoe UI the Latin text.
-const WINDOWS_FONT_FILES = ['Nirmala.ttc', 'Nirmala.ttf', 'NirmalaB.ttf', 'NirmalaS.ttf', 'segoeui.ttf', 'segoeuib.ttf', 'seguisb.ttf']
-  .map((f) => path.join(process.env.WINDIR || 'C:\\Windows', 'Fonts', f));
-
-async function prepareFontsDir(dir) {
+// libass only looks in the fonts folder it is given: link the bundled fonts into one. A missing
+// font stops the export with a message instead of silently drawing captions in another font.
+// `source` is for tests.
+async function prepareFontsDir(dir, { source = BUNDLED_FONTS } = {}) {
+  for (const f of FONT_FILES) {
+    await fsp.access(path.join(source, f)).catch(() => {
+      throw new Error(`The caption font ${f} is missing from this copy of Talkcut, so captions and titles cannot be drawn. Reinstall Talkcut.`);
+    });
+  }
   await fsp.mkdir(dir, { recursive: true });
-  for (const f of WIN ? WINDOWS_FONT_FILES : CAPTION_FONT_FILES) {
-    const target = path.join(dir, path.basename(f).replace(/\s+/g, '-'));
+  for (const f of FONT_FILES) {
+    const target = path.join(dir, f);
     // Windows needs admin rights for symlinks, so it copies the font files instead.
-    await (WIN ? fsp.copyFile(f, target) : fsp.symlink(f, target)).catch(() => {});
+    if (WIN) await fsp.copyFile(path.join(source, f), target);
+    else await fsp.symlink(path.join(source, f), target).catch(() => fsp.copyFile(path.join(source, f), target));
   }
   return dir;
 }

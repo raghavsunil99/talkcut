@@ -7,8 +7,9 @@
   // Style a caption line element the way the burned-in ASS version looks.
   function styleLine(el, presetId, fontPx, language) {
     const p = C.PRESETS[presetId] ?? C.PRESETS.highlight;
-    el.style.fontFamily = `"${C.fontFor(language)}", "${C.LATIN_FONT}", sans-serif`;
-    el.style.fontWeight = String(p.weight);
+    el.style.fontFamily = C.fontStack(language);
+    // The export draws Regular or Bold only (ASS Bold when the weight is 700 or more).
+    el.style.fontWeight = p.weight >= 700 ? '700' : '400';
     el.style.fontSize = `${fontPx}px`;
     el.style.color = p.text;
     // ASS outlines grow outward from the glyph; a stroke painted under the fill matches that

@@ -52,6 +52,7 @@
     },
     "files": [
       "src/**/*",
+      "assets/fonts/*",
       "package.json",
       "!node_modules/ffmpeg-static/ffmpeg",
       "!node_modules/ffmpeg-static/*.README",
@@ -152,6 +153,9 @@
           "path": "/Applications"
         }
       ]
-    }
+    },
+    "asarUnpack": [
+      "assets/fonts/*"
+    ]
   }
 }

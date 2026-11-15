@@ -34,30 +34,80 @@
   // it was dragged on the video; scale multiplies the size (resized on the video).
   const DEFAULTS = { enabled: false, preset: 'highlight', position: 'bottom', size: 'medium', x: 0.5, y: 0.75, scale: 1 };
 
-  // Fonts that cover each script; macOS ships all of these. Their Latin letters cover the
-  // English words in code-mixed speech.
+  // Fonts: Noto Sans (SIL Open Font License, files in assets/fonts) on every platform, in the
+  // preview and in the export, so a caption looks the same wherever it is made and no system
+  // font has to exist. One family per script; Latin letters (the English words in code-mixed
+  // speech) always use Noto Sans, because the script fonts have no Latin letters of their own.
+  const LATIN_FONT = 'Noto Sans';
   const SCRIPT_FONTS = {
-    te: 'Kohinoor Telugu',
-    hi: 'Kohinoor Devanagari',
-    mr: 'Kohinoor Devanagari',
-    bn: 'Kohinoor Bangla',
+    te: 'Noto Sans Telugu',
+    hi: 'Noto Sans Devanagari',
+    mr: 'Noto Sans Devanagari',
+    bn: 'Noto Sans Bengali',
     kn: 'Noto Sans Kannada',
-    ta: 'Tamil Sangam MN',
-    ml: 'Malayalam Sangam MN',
+    ta: 'Noto Sans Tamil',
+    ml: 'Noto Sans Malayalam',
   };
-  const WINDOWS = (typeof process !== 'undefined' && process.platform === 'win32')
-    || (typeof navigator !== 'undefined' && /Win/.test(navigator.platform || ''));
-  // Windows ships Nirmala UI for every Indian script and Segoe UI for Latin text.
-  const LATIN_FONT = (typeof window !== 'undefined' && window.cutline?.platform === 'android') ? 'Noto Sans' : WINDOWS ? 'Segoe UI' : 'Avenir Next';
+  // Every font file the export needs, and the family each one provides. Static Regular and Bold
+  // files, cut from Google's variable fonts by scripts/make-static-fonts.py: libass cannot pick a
+  // weight inside a variable font and would draw everything regular.
+  const FONT_FILES = {
+    'NotoSans-Regular.ttf': 'Noto Sans',
+    'NotoSans-Bold.ttf': 'Noto Sans',
+    'NotoSansTelugu-Regular.ttf': 'Noto Sans Telugu',
+    'NotoSansTelugu-Bold.ttf': 'Noto Sans Telugu',
+    'NotoSansDevanagari-Regular.ttf': 'Noto Sans Devanagari',
+    'NotoSansDevanagari-Bold.ttf': 'Noto Sans Devanagari',
+    'NotoSansBengali-Regular.ttf': 'Noto Sans Bengali',
+    'NotoSansBengali-Bold.ttf': 'Noto Sans Bengali',
+    'NotoSansKannada-Regular.ttf': 'Noto Sans Kannada',
+    'NotoSansKannada-Bold.ttf': 'Noto Sans Kannada',
+    'NotoSansTamil-Regular.ttf': 'Noto Sans Tamil',
+    'NotoSansTamil-Bold.ttf': 'Noto Sans Tamil',
+    'NotoSansMalayalam-Regular.ttf': 'Noto Sans Malayalam',
+    'NotoSansMalayalam-Bold.ttf': 'Noto Sans Malayalam',
+  };
 
-  // The Android app ships Noto fonts for every script it supports.
-  const MOBILE = typeof window !== 'undefined' && window.cutline?.platform === 'android';
-  const NOTO = { te: 'Noto Sans Telugu', hi: 'Noto Sans Devanagari', mr: 'Noto Sans Devanagari', bn: 'Noto Sans Bengali', kn: 'Noto Sans Kannada', ta: 'Noto Sans Tamil', ml: 'Noto Sans Malayalam' };
+  // libass reads "font size" as the font's whole line height (usWinAscent + usWinDescent from the
+  // font's OS/2 table), while CSS font-size is the em. To draw the same size as the preview, ASS
+  // sizes are the CSS size times this factor. test/fonts.test.js recomputes the factors from the
+  // font files, so they cannot go stale.
+  const LINE_HEIGHT = {
+    'Noto Sans': 1.519,
+    'Noto Sans Telugu': 1.478,
+    'Noto Sans Devanagari': 1.906,
+    'Noto Sans Bengali': 1.403,
+    'Noto Sans Kannada': 1.645,
+    'Noto Sans Tamil': 1.24,
+    'Noto Sans Malayalam': 1.247,
+  };
 
+  // ASS font size that draws `family` at `px` CSS pixels.
+  function assSize(family, px) {
+    return Math.round(px * (LINE_HEIGHT[family] ?? LINE_HEIGHT[LATIN_FONT]) * 10) / 10;
+  }
+
+  // The font a language's captions use for its own script.
   function fontFor(language) {
-    if (MOBILE) return NOTO[language] ?? 'Noto Sans';
-    if (WINDOWS) return SCRIPT_FONTS[language] ? 'Nirmala UI' : LATIN_FONT;
     return SCRIPT_FONTS[language] ?? LATIN_FONT;
+  }
+
+  // CSS font stack for the preview. Noto Sans comes first so Latin letters always use it; the
+  // script's font supplies the glyphs Noto Sans does not have.
+  function fontStack(language) {
+    const script = fontFor(language);
+    return script === LATIN_FONT ? `"${LATIN_FONT}", sans-serif` : `"${LATIN_FONT}", "${script}", sans-serif`;
+  }
+
+  // ASS text with a font switch around each run that starts with a Latin letter or digit, when
+  // the line's own font is a script font. libass would otherwise pick whatever system font has
+  // the letters. Both fonts are given the size that draws `px` CSS pixels. `text` must already
+  // be escaped for ASS.
+  function withFontRuns(text, language, px) {
+    const script = fontFor(language);
+    if (script === LATIN_FONT) return text;
+    const back = `\\fn${script}\\fs${assSize(script, px)}`;
+    return text.replace(/[A-Za-z0-9\u00C0-\u024F][\u0000-\u024F\u2000-\u206F]*/g, (run) => `{\\fn${LATIN_FONT}\\fs${assSize(LATIN_FONT, px)}}${run}{${back}}`);
   }
 
   function settingsOf(s) {
@@ -205,12 +255,13 @@
       'ScriptType: v4.00+',
       `PlayResX: ${width}`,
       `PlayResY: ${height}`,
-      'WrapStyle: 0',
+      // 1: break lines greedily, like the preview (0 balances line lengths, so the two break differently)
+      'WrapStyle: 1',
       'ScaledBorderAndShadow: yes',
       '',
       '[V4+ Styles]',
       'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-      `Style: Cap,${fontFor(language)},${fontSize},${assColor(p.text)},${assColor(p.hi)},${outlineColour},&H96000000,${p.weight >= 700 ? -1 : 0},0,0,0,100,100,0,0,${borderStyle},${boxOutline},${p.box ? 0 : shadow},${align},${marginH},${marginH},${marginV},1`,
+      `Style: Cap,${fontFor(language)},${assSize(fontFor(language), fontSize)},${assColor(p.text)},${assColor(p.hi)},${outlineColour},&H96000000,${p.weight >= 700 ? -1 : 0},0,0,0,100,100,0,0,${borderStyle},${boxOutline},${p.box ? 0 : shadow},${align},${marginH},${marginH},${marginV},1`,
       '',
       '[Events]',
       'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -220,7 +271,7 @@
     const spans = groupSpans(groupWords(words, deleted, s.preset), words);
     for (const span of spans) {
       const line = (current) => span.words.map((i) => {
-        const text = assEscape(displayText(words[i].text, p));
+        const text = withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize);
         if (p.mode !== 'highlight' || i !== current || p.hi === p.text) return text;
         return `{\\c${assColor(p.hi)}}${text}{\\c${assColor(p.text)}}`;
       }).join(' ');
@@ -242,7 +293,7 @@
     return `${header.join('\n')}\n${events.join('\n')}\n`;
   }
 
-  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, SCRIPT_FONTS, LATIN_FONT, fontFor, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
+  const api = { PRESETS, SIZES, POSITIONS, DEFAULTS, SCRIPT_FONTS, FONT_FILES, LINE_HEIGHT, LATIN_FONT, fontFor, fontStack, assSize, withFontRuns, fontPx, settingsOf, groupWords, groupSpans, activeAt, displayText, buildAss, buildSubtitles, assColor, assTime };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineCaptions = api;
 })(typeof window !== 'undefined' ? window : globalThis);
