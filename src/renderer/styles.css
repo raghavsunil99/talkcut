@@ -120,7 +120,8 @@ a { color: var(--accent); }
 .empty-card .hint { margin: 14px 0 0; font-size: 13px; }
 
 /* Transcript */
-.transcript-wrap { flex: 1; overflow-y: auto; padding: 28px max(28px, calc((100% - 720px) / 2)) 80px; }
+/* A readable column (about 70 characters) plus a gutter for speaker names and times. */
+.transcript-wrap { flex: 1; overflow-y: auto; padding: 28px max(28px, calc((100% - 820px) / 2)) 80px; container-type: inline-size; }
 .transcript-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
 .doc-title { font-size: 26px; font-weight: 500; margin: 0; word-break: break-all; }
 .doc-language {
@@ -207,10 +208,8 @@ a { color: var(--accent); }
 .time { font-variant-numeric: tabular-nums; font-size: 14px; }
 .muted { color: var(--muted); }
 
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; flex-shrink: 0; }
-.stats div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
-.stats dt { color: var(--muted); font-size: 11px; }
-.stats dd { margin: 1px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.stats { margin: 0; flex-shrink: 0; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; cursor: default; }
+.stats #stat-edited { color: var(--text); font-weight: 600; }
 
 /* Sidebar + rail */
 .sidebar {
@@ -472,7 +471,7 @@ a { color: var(--accent); }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 284px;
+  top: 54px; /* under the toolbar, clear of the video and the playback controls */
   transform: translateX(-50%);
   max-width: 640px;
   padding: 10px 16px;
@@ -816,7 +815,9 @@ body.show-guides .guides, body.show-grid .grid-lines { display: block; }
 /* Transcript header: title on its own line, tools underneath */
 .transcript-head { flex-wrap: wrap; row-gap: 6px; }
 .transcript-head .doc-title { flex: 1 1 auto; min-width: 0; word-break: normal; overflow-wrap: anywhere; }
-.transcript-head .head-tools { flex-basis: 100%; margin-left: -8px; flex-wrap: wrap; }
+/* The title moved to the top bar: the language and Find share one line. */
+.transcript-head .head-tools { margin-left: auto; }
+.transcript-head { align-items: center; flex-wrap: nowrap; }
 
 /* Timeline polish */
 :root { --lane: rgba(255, 255, 255, 0.03); --wave-bg: rgba(124, 140, 255, 0.09); --wave: #a6a2bf; --chip-border: #43424c; --film-border: rgba(236, 235, 240, 0.8); }
@@ -939,3 +940,72 @@ body.guides-shorts .guides .safe-right { top: 34%; bottom: 19%; width: 17%; }
 .review-tag.pause { color: #9be38b; }
 #prop-strength-row.dim, #prop-engine.dim { opacity: 0.5; }
 #prop-strength-row .prop-label { font-size: 12px; color: var(--muted); min-width: 56px; }
+
+/* Undo and redo read as buttons, not as faint marks. */
+#btn-undo, #btn-redo { font-size: 18px; color: var(--text); }
+#btn-undo:disabled, #btn-redo:disabled { color: var(--muted); }
+
+/* A collapsed timeline keeps only its bar: time, transport and zoom. */
+body.tl-collapsed .timeline-panel { height: auto; min-height: 0; }
+body.tl-collapsed .timeline-panel .tl-body, body.tl-collapsed .timeline-panel .tl-scrub { display: none; }
+body.tl-collapsed .tl-resize { cursor: pointer; }
+.tl-resize::after { cursor: inherit; }
+
+/* Script gutter: speaker name and time to the left of each paragraph. */
+.transcript p { position: relative; padding-left: 104px; border-left: none; }
+.transcript p > .speaker-label { position: absolute; left: 0; top: 0.45em; width: 92px; margin: 0; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transcript p > .para-time { position: absolute; left: 8px; top: 0.6em; font-size: 11px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; cursor: pointer; opacity: 0.7; }
+.transcript p.with-label > .para-time { top: calc(0.45em + 22px); }
+.transcript p > .para-time:hover { opacity: 1; color: var(--accent); }
+/* A narrow script puts the name back above the paragraph. */
+@container (max-width: 520px) {
+  .transcript p { padding-left: 14px; border-left: 2px solid var(--line); }
+  .transcript p > .speaker-label { position: static; width: fit-content; margin: 0 0 4px -2px; }
+  .transcript p > .para-time { display: none; }
+}
+
+/* The toolbar above a selection of words */
+.sel-bar { position: fixed; z-index: 25; display: flex; gap: 2px; padding: 3px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.sel-bar .btn.small { height: 26px; }
+.sel-bar .btn[hidden] { display: none; }
+.head-tools #btn-find { font-size: 18px; }
+
+/* Scenes: headings in the script and the rail of thumbnails beside it */
+.scene-head { display: flex; align-items: center; gap: 8px; margin: 18px 0 8px -104px; padding-bottom: 6px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 650; line-height: 1.4; color: var(--text); }
+.transcript p.scene-start { content-visibility: visible; }
+.scene-title { cursor: text; border-radius: 4px; padding: 1px 4px; outline: none; }
+.scene-title[contenteditable="plaintext-only"] { background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent); }
+.scene-remove { margin-left: auto; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 16px; opacity: 0; }
+.scene-head:hover .scene-remove { opacity: 1; }
+.transcript p.scene-start > .speaker-label { top: calc(0.45em + 46px); }
+.transcript p.scene-start > .para-time { top: calc(0.6em + 46px); }
+.transcript p.scene-start.with-label > .para-time { top: calc(0.45em + 68px); }
+@container (max-width: 520px) { .scene-head { margin-left: -14px; } }
+.scene-rail { flex: 0 0 132px; overflow-y: auto; padding: 16px 8px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.scene-item { cursor: pointer; border-radius: 8px; padding: 4px; border: 1px solid transparent; }
+.scene-item:hover { background: var(--panel-2); }
+.scene-item.drop-above { box-shadow: 0 -3px 0 var(--accent); }
+.scene-item.drop-below { box-shadow: 0 3px 0 var(--accent); }
+.scene-thumb { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; background: var(--panel-3); }
+.scene-name { font-size: 12px; font-weight: 600; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scene-time { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Command palette */
+.palette-backdrop { place-items: start center; padding-top: 12vh; }
+.palette { width: min(560px, 90vw); padding: 10px; gap: 8px; }
+.palette-list { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; }
+.palette-list li { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+.palette-list li.on { background: var(--accent-soft); }
+.palette-list li.empty { color: var(--muted); cursor: default; }
+.palette-list kbd { font: 12px system-ui, sans-serif; color: var(--muted); }
+.palette-hint { font-size: 12px; color: var(--muted); }
+
+/* Top bar: the project name sits next to the app name */
+.toolbar .doc-title { font-size: 14px; font-weight: 600; margin: 0 0 0 4px; padding: 3px 6px; border-radius: 5px; cursor: text; max-width: 32vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: normal; }
+.toolbar .doc-title:hover { background: var(--panel-2); }
+.toolbar .doc-title[contenteditable="plaintext-only"] { background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent); text-overflow: clip; }
+.toolbar .brand { color: var(--muted); font-weight: 600; }
+
+/* Project panel */
+.proj-sources { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; }
+.proj-sources li { padding: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

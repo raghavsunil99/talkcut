@@ -23,6 +23,7 @@ function openFields(project) {
     cutGaps: project.cutGaps ?? [],
     order: project.order ?? null,
     gapKeep: project.gapKeep ?? null,
+    scenes: project.scenes ?? [],
     language: project.language ?? null,
     captions: project.captions ?? null,
     clip: project.clip ?? null,

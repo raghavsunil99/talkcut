@@ -61,7 +61,7 @@
         state.itemSel = id && id !== 'main' && id !== 'captions' ? id : null;
         if (id) { state.anchor = state.focus = -1; state.gapSel = null; state.rangeSel = null; }
         if (id === 'main') document.querySelector('.rail-btn[data-panel="properties"]:not(.on)')?.click();
-        else if (id && T.find(state.tracks, id)?.item.kind === 'text') document.querySelector('.rail-btn[data-panel="elements"]:not(.on)')?.click();
+        else if (id && T.find(state.tracks, id)?.item.kind === 'text') { openRailPanel('media'); document.querySelector('#media-tabs button[data-tab="text"]:not(.on)')?.click(); }
         else if (id) openRailPanel('properties');
         refresh();
       },

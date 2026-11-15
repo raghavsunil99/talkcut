@@ -1,4 +1,4 @@
-/* global CutlinePlayer, CutlineReview, CutlineReviewDialog, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
+/* global CutlinePalette, CutlineProjectPanel, CutlinePlayer, CutlineReview, CutlineReviewDialog, CutlineScenes, CutlineSceneRail, CutlineSelectionBar, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
 (() => {
   const E = CutlineEdits;
   const C = CutlineCaptions;
@@ -49,10 +49,9 @@
     toast: $('toast'),
     dropHint: $('drop-hint'),
     buttons: {
-      open: $('btn-open'),
+      open: $('btn-open-empty'),
       openEmpty: $('btn-open-empty'),
-      openProject: $('btn-open-project'),
-      save: $('btn-save'),
+      openProject: $('btn-open-empty'),
       cut: $('btn-cut'),
       restore: $('btn-restore'),
       fillers: $('btn-fillers'),
@@ -76,6 +75,8 @@
     cutGaps: new Set(), // pauses shortened, keyed like CutlineEdits.gaps
     gapKeep: CutlineEdits.GAP_KEEP, // seconds of silence a shortened pause keeps
     previewing: null, // { end }: playing a stretch from the review list, outside the edit
+    scenes: [], // [{ id (word that starts it), title }], see scenes.js
+    showCut: (() => { try { return localStorage.getItem('cutline.showCut') === '1'; } catch { return false; } })(), // cut words struck through, not hidden
     // Play order: pieces of the recording [[start, end]] in the order they play, or null for
     // straight through. `words` is always in play order. See the notes in edits.js.
     order: null,
@@ -293,7 +294,7 @@
       state.rangeSel = null;
       state.itemSel = id;
       const kind = id ? T.find(state.tracks, id)?.item.kind : null;
-      if (kind === 'text') openRailPanel('elements');
+      if (kind === 'text') openTextTab();
       else if (id) openRailPanel('properties');
       refresh();
     },
@@ -355,7 +356,7 @@
 
   // ---------- rendering ----------
 
-  mod.transcript = CutlineTranscriptView.create({ $, els, state, E, languageNames, projectName, selectionRange });
+  mod.transcript = CutlineTranscriptView.create({ $, els, state, E, languageNames, projectName, selectionRange, fmtTime: (t) => fmt(t) });
   function renderTranscript() { mod.transcript.renderTranscript(); }
   function visibleFrom(i) { return mod.transcript.visibleFrom(i); }
   function visibleBefore(i) { return mod.transcript.visibleBefore(i); }
@@ -374,6 +375,10 @@
       span?.classList.toggle('sel', !!sel && i >= sel[0] && i <= sel[1]);
     });
     paintCaret();
+    mod.transcript.paintTimes();
+    mod.sceneRail?.render();
+    mod.project?.render();
+    mod.selBar?.place();
     if (hasProject()) {
       timeline.setEdits({ words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, selection: sel, gapSel: state.gapSel, rangeCuts: state.rangeCuts, order: state.order, gapKeep: state.gapKeep });
       timeline.setMarks({ splits: state.splits, rangeSel: state.rangeSel });
@@ -385,7 +390,9 @@
     const total = editedLength();
     els.statOriginal.textContent = state.media ? fmt(d) : '—';
     els.statEdited.textContent = state.media ? fmt(total) : '—';
-    els.statCut.textContent = state.media ? `${state.deleted.size} words · ${state.cutGaps.size} pauses · ${itemCount()} on tracks` : '—';
+    const cutCount = state.deleted.size + state.cutGaps.size + state.rangeCuts.length;
+    els.statCut.textContent = state.media ? `${cutCount} cut${cutCount === 1 ? '' : 's'}` : '—';
+    $('stats').title = state.media ? `Edited ${fmt(total)} of ${fmt(d)}: ${state.deleted.size} words and ${state.cutGaps.size} pauses cut, ${state.rangeCuts.length} time cuts, ${itemCount()} items on tracks` : '';
     els.timeTotal.textContent = fmtTenths(state.media ? total : 0);
     properties.setProps(state.clip, total, state.media ? { w: els.video.videoWidth || state.media.width || 1920, h: els.video.videoHeight || state.media.height || 1080 } : null);
     renderTextEditor();
@@ -402,7 +409,6 @@
     const b = els.buttons;
     const ready = hasProject() && !state.busy;
     const anySel = !!sel || state.gapSel != null || state.itemSel != null;
-    b.save.disabled = !ready;
     b.export.disabled = !ready || state.kept.length === 0;
     b.fillers.disabled = !ready;
     b.retakes.disabled = !ready;
@@ -428,7 +434,7 @@
 
   function snapshot() {
     return {
-      words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, gapKeep: state.gapKeep, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.committedCaptions ?? state.captions, speakers: state.speakers };
+      words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, gapKeep: state.gapKeep, scenes: state.scenes, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.committedCaptions ?? state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -438,6 +444,7 @@
     state.cutGaps = snap.cutGaps;
     if ('order' in snap) state.order = snap.order;
     if (snap.gapKeep != null) state.gapKeep = snap.gapKeep;
+    if (snap.scenes) state.scenes = snap.scenes;
     // Undoing or redoing "Add Recording to End" changes the files behind the project.
     if (snap.media && state.media && snap.media !== state.media && snap.media.path === state.media.path) { state.media = snap.media; mod.applyMedia?.(); }
     state.playK = -1;
@@ -452,11 +459,11 @@
     state.textVersion++;
   }
 
-  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, gapKeep = state.gapKeep, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
+  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, gapKeep = state.gapKeep, scenes = state.scenes, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
     state.undo.push(snapshot());
     if (state.undo.length > 500) state.undo.shift();
     state.redo = [];
-    restore({ words, deleted, cutGaps, order, gapKeep, media, tracks, clip, splits, rangeCuts, captions, speakers });
+    restore({ words, deleted, cutGaps, order, gapKeep, scenes, media, tracks, clip, splits, rangeCuts, captions, speakers });
     setDirty(true);
     refresh();
   }
@@ -590,6 +597,14 @@
       // Cut, copy and paste of words. The Edit menu items arrive as clipboard events instead.
       e.preventDefault();
       clipboardCommand({ x: 'cut', c: 'copy', v: 'paste' }[e.key.toLowerCase()]);
+    } else if (e.key === '/' && !mod && hasProject() && transcriptFocused() && (sel || state.caret != null) && state.words.length) {
+      // "/" starts a scene at the selection or the text cursor.
+      e.preventDefault();
+      scenesUi.startScene(sel ? sel[0] : Math.min(state.caret, state.words.length - 1));
+    } else if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+      // ⌘K: the menu's accelerator normally takes it; this covers the page on its own.
+      e.preventDefault();
+      palette.open();
     } else if (e.key === 'Escape') {
       clearSelection();
     } else if (e.key === 'Enter' && sel && hasProject()) {
@@ -640,6 +655,21 @@
 
   mod.applyMedia = applyMedia;
 
+  // Scenes (the rail beside the script, headings, "/") and the toolbar above a selection.
+  const scenesUi = CutlineSceneRail.create({ $, els, state, E, S: CutlineScenes, timeline, duration, commit, seek, visibleFrom, fmt, toast });
+  mod.sceneRail = scenesUi;
+  mod.project = CutlineProjectPanel.create({ $, els, state, languageNames, hasProject, setDirty, refresh, renderTranscript, panels, addRecording: () => addRecording(), projectName, toast, showError });
+  const palette = CutlinePalette.create({ $, runCommand: (name) => runCommand(name) });
+  mod.selBar = CutlineSelectionBar.create({ $, els, state, getSpans, selectionRange, seek, openRailPanel, cutWords, startScene: (i) => scenesUi.startScene(i), toast });
+  // Cut words shown struck through in the script, or as a small marker (View menu).
+  function toggleShowCut() {
+    state.showCut = !state.showCut;
+    try { localStorage.setItem('cutline.showCut', state.showCut ? '1' : ''); } catch {}
+    state.textVersion++;
+    refresh();
+    toast(state.showCut ? 'Cut words are shown struck through. Select them and press ⌘⌫ to restore.' : 'Cut words are shown as a small ⌁ marker.');
+  }
+
   const review = CutlineReviewDialog.create({ $, els, state, E, R: CutlineReview, timeline, hasProject, duration, commit, refresh, toast, fmtTenths });
   // The transcript marks the fillers that the review looks for.
   state.fillerSet = () => review.fillerSet();
@@ -658,11 +688,8 @@
   // ---------- wiring ----------
 
   const b = els.buttons;
-  b.open.addEventListener('click', openMedia);
   b.openEmpty.addEventListener('click', openMedia);
-  b.openProject.addEventListener('click', () => openProject());
   $('btn-home').addEventListener('click', () => (home.visible && hasProject() ? home.hide() : showHome()));
-  b.save.addEventListener('click', () => save());
   b.cut.addEventListener('click', () => cutSelection());
   b.restore.addEventListener('click', () => cutSelection({ restore: true }));
   b.fillers.addEventListener('click', () => review.open('filler'));
@@ -672,6 +699,12 @@
   b.redo.addEventListener('click', redo);
   b.export.addEventListener('click', openExport);
 
+  // Text and titles live in the Media panel's Text tab.
+  function openTextTab() {
+    openRailPanel('media');
+    document.querySelector('#media-tabs button[data-tab="text"]:not(.on)')?.click();
+  }
+
   cutline.onMenuCommand((name) => {
     // In a text field (API key, names, find), Undo, Redo and Select All act on the field's text.
     const field = document.activeElement?.closest?.('input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], .editing');
@@ -680,8 +713,18 @@
       document.execCommand(fieldCommands[name]);
       return;
     }
+    runCommand(name);
+  });
+
+  // Every menu command, by name; the ⌘K palette runs them too.
+  function runCommand(name) {
     if (state.busy) return;
     const commands = {
+      palette: () => palette.open(),
+      'studio-sound': () => hasProject() && $('ai-studio').click(),
+      'auto-frame': () => hasProject() && $('ai-autoframe').click(),
+      'captions-toggle': () => hasProject() && $('cap-enabled').click(),
+      'collapse-timeline': () => mod.workspace?.setCollapsed(!document.body.classList.contains('tl-collapsed')),
       'open-media': openMedia,
       'open-project': () => openProject(),
       'new-project': openMedia,
@@ -704,6 +747,7 @@
       'workspace-reels': () => appearance.useWorkspace('reels'),
       'toggle-transcript': () => appearance.toggle('transcript'),
       'toggle-timeline': () => appearance.toggle('timeline'),
+      'toggle-show-cut': () => toggleShowCut(),
       'remove-retakes': () => hasProject() && review.open('retake'),
       'shorten-pauses': () => hasProject() && review.open('pause'),
       'api-keys': () => openKeys(),
@@ -713,7 +757,7 @@
       'seek-forward': () => seekEdited(5),
     };
     commands[name]?.();
-  });
+  }
 
   CutlineTimelineTools.create({ $, els, state, timeline, hasProject, toast });
 
@@ -739,7 +783,8 @@
   const { startCrop } = mod.canvas;
   canvasEditor = mod.canvas.canvasEditor;
 
-  const { appearance } = CutlineWorkspace.create({ $, els, state, T, timeline, hasProject, commit, toast, updatePlayhead, resetCaptionCache, openRailPanel });
+  mod.workspace = CutlineWorkspace.create({ $, els, state, T, timeline, hasProject, commit, toast, updatePlayhead, resetCaptionCache, openRailPanel });
+  const { appearance } = mod.workspace;
 
   // Read-only view and entry points for DevTools and automated checks.
   Object.defineProperty(window, 'cutlineState', { get: () => state });

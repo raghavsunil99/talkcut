@@ -21,7 +21,11 @@ async function withProjectIn(dir, extra, fn) {
 }
 
 test('the API keys dialog lists keys, opens the add form and closes', TIMEOUT, () => withProject(async ({ page }) => {
-  await page.click('#btn-keys');
+  // API keys moved from the toolbar to the app menu (⇧⌘K) and the ⌘K palette.
+  await page.keyboard.press('Meta+k');
+  await page.locator('#palette:not([hidden])').waitFor();
+  await page.keyboard.type('api keys');
+  await page.keyboard.press('Enter');
   await page.locator('#keys-dialog').waitFor();
   assert.equal(await page.locator('#keys-dialog .key-list li.empty').count(), 2, 'one empty list per service');
   await page.click('#btn-add-key');
@@ -57,10 +61,10 @@ test('find and replace fixes every match, remembers the fix, and undoes', TIMEOU
   await page.click('#btn-undo');
   await H.until(async () => (await word(1)) === 'two', 'the undo');
 
-  // Right-click a word: the menu offers Correct, Cut, Find, Speaker, Play and Copy.
+  // Right-click a word: the menu offers Correct, Cut, Find, Speaker, Start a scene, Play and Copy.
   await page.locator('#transcript .w[data-i="3"]').click({ button: 'right' });
   await page.locator('#word-menu').waitFor();
-  assert.equal(await page.locator('#word-menu li').count(), 6);
+  assert.equal(await page.locator('#word-menu li').count(), 7);
 }));
 
 test('the item inspector edits a B-roll photo, undoes and deletes it', TIMEOUT, async () => {
@@ -84,7 +88,9 @@ test('the item inspector edits a B-roll photo, undoes and deletes it', TIMEOUT, 
 });
 
 test('a title added from Elements can be retyped', TIMEOUT, () => withProject(async ({ page, file }) => {
-  await page.click('.rail-btn[data-panel="elements"]');
+  // Text and titles are in the Media panel's Text tab.
+  await page.click('.rail-btn[data-panel="media"]');
+  await page.click('#media-tabs button[data-tab="text"]');
   await page.click('.text-preset[data-preset="title"]');
   await page.locator('#text-edit').waitFor();
   await page.fill('#text-content', 'Top 5 tips');
