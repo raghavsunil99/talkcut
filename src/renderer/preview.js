@@ -77,7 +77,7 @@
     const enhancedEl = new Audio();
     enhancedEl.preload = 'auto';
     const enhancedUrls = new Map(); // media path and strength -> url, or a pending promise
-    const enhancedKey = () => `${state.media?.path}|${state.clip.enhanceStrength}`;
+    const enhancedKey = () => `${state.media?.path}|${state.clip.enhanceEngine}|${state.clip.enhanceStrength}`;
     function enhancedReady() {
       const url = state.media && enhancedUrls.get(enhancedKey());
       // With a second recording added, the cleaned preview (made from the first file only) is
@@ -95,7 +95,7 @@
       const key = enhancedKey();
       if (!media || !state.clip.enhance || enhancedUrls.has(key)) return;
       toast('Preparing Studio Sound preview…', { ms: 2500 });
-      const pending = cutline.enhancedAudio(media.path, state.clip.enhanceStrength).then((url) => {
+      const pending = cutline.enhancedAudio(media.path, state.clip.enhanceStrength, state.clip.enhanceEngine).then((url) => {
         enhancedUrls.set(key, url);
         if (enhancedKey() === key) { applyAudio(); toast('Studio Sound is on. The export uses it too.'); }
       }).catch((err) => { enhancedUrls.delete(key); showError(err); });

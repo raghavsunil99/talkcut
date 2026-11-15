@@ -425,9 +425,9 @@ handle('audio:describe', async (_event, filePath) => describeAudio(filePath));
 
 // Studio Sound preview: the cleaned voice, made once per file (and per filter chain) and cached.
 const enhancing = new Map();
-handle('audio:enhanced', async (_event, filePath, strength = 0.8) => {
+handle('audio:enhanced', async (_event, filePath, strength = 0.8, engine = 'rnnoise') => {
   const stat = await fs.stat(filePath);
-  const key = crypto.createHash('sha1').update(`${filePath}|${stat.size}|${stat.mtimeMs}|${studioChain(strength)}`).digest('hex').slice(0, 16);
+  const key = crypto.createHash('sha1').update(`${filePath}|${stat.size}|${stat.mtimeMs}|${studioChain(strength, engine)}`).digest('hex').slice(0, 16);
   const dir = path.join(app.getPath('userData'), 'cache');
   const out = path.join(dir, `studio-sound-${key}.m4a`);
   if (!(await fs.access(out).then(() => true, () => false))) {
@@ -435,7 +435,7 @@ handle('audio:enhanced', async (_event, filePath, strength = 0.8) => {
       enhancing.set(out, (async () => {
         await fs.mkdir(dir, { recursive: true });
         const tmp = `${out}.part.m4a`;
-        await enhanceAudio(filePath, tmp, { strength });
+        await enhanceAudio(filePath, tmp, { strength, engine });
         await fs.rename(tmp, out);
       })().finally(() => enhancing.delete(out)));
     }

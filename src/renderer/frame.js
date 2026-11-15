@@ -19,7 +19,11 @@
     volume: 1, // 0..2
     muted: false,
     enhance: false, // Studio Sound: voice cleanup
-    enhanceStrength: 0.8, // how much of the cleaned voice is used (0 to 1); see scripts/bench-sound.js
+    // Which Studio Sound: 'rnnoise' (AI noise removal) or 'classic' (the original filters).
+    // Left out, it is 'classic' for a project that already had Studio Sound on, so its export does
+    // not change, and 'rnnoise' otherwise.
+    enhanceEngine: null,
+    enhanceStrength: null, // how much cleaning (0 to 1): 0.8 for 'rnnoise', 1 (as before) for 'classic'; see scripts/bench-sound.js
     loudness: null, // export loudness target in LUFS (-14 social, -16 podcasts), or null to leave it
     canvas: 'original',
     scale: 1, // 1 = fit inside the frame
@@ -44,7 +48,8 @@
     s.volume = clamp(s.volume, 0, 2, 1);
     s.muted = Boolean(s.muted);
     s.enhance = Boolean(s.enhance);
-    s.enhanceStrength = clamp(s.enhanceStrength, 0, 1, 0.8);
+    s.enhanceEngine = s.enhanceEngine === 'classic' || s.enhanceEngine === 'rnnoise' ? s.enhanceEngine : (s.enhance ? 'classic' : 'rnnoise');
+    s.enhanceStrength = clamp(s.enhanceStrength ?? NaN, 0, 1, s.enhanceEngine === 'classic' ? 1 : 0.8);
     s.loudness = [-14, -16].includes(Number(s.loudness)) ? Number(s.loudness) : null;
     if (!CANVASES[s.canvas]) s.canvas = 'original';
     s.scale = clamp(s.scale, 0.1, 4, 1);

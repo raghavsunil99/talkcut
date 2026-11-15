@@ -47,13 +47,28 @@ test('the RNNoise chain runs at 48 kHz with the strength as its mix; the old cha
   assert.equal(voiceChain({ engine: 'nlm', strength: 1 }), STUDIO_SOUND);
   assert.equal(voiceChain({ engine: 'rnnoise', strength: 1 }), STUDIO_SOUND, 'no model: the old chain');
   assert.match(voiceChain({ engine: 'nlm', strength: 0.5 }), /anlmdn=s=3\.50/);
-  const clip = F.normalize({ enhance: true, enhanceStrength: 0.3 });
+  const clip = F.normalize({ enhance: true, enhanceEngine: 'rnnoise', enhanceStrength: 0.3 });
   const { args } = buildRenderArgs({ input: 'a.mp4', output: 'o.mp4', ranges: [[0, 1]], hasVideo: false, hasAudio: true, duration: 2, clip, rnnoiseModel: '/m/sh.rnnn', filterPath: (p) => p });
   assert.match(args[args.indexOf('-filter_complex') + 1], /arnndn=m=\/m\/sh\.rnnn:mix=0\.30/);
 });
 
-test('clip settings: strength defaults to 80% and loudness only takes the two targets', () => {
-  assert.equal(F.normalize({}).enhanceStrength, 0.8);
+test('both Studio Sounds are kept: a project that already had it on stays on Classic, as before', () => {
+  const fresh = F.normalize({});
+  assert.deepEqual([fresh.enhanceEngine, fresh.enhanceStrength], ['rnnoise', 0.8], 'turned on from now: AI noise removal at 80%');
+  const old = F.normalize({ enhance: true }); // a project saved before there was a choice
+  assert.deepEqual([old.enhanceEngine, old.enhanceStrength], ['classic', 1]);
+  assert.equal(F.normalize({ ...old, enhance: false }).enhanceEngine, 'classic', 'the choice is kept once made');
+  const plan = (clip) => {
+    const { args } = buildRenderArgs({ input: 'a.mp4', output: 'o.mp4', ranges: [[0, 1]], hasVideo: false, hasAudio: true, duration: 2, clip, rnnoiseModel: '/m/sh.rnnn', filterPath: (p) => p });
+    return args[args.indexOf('-filter_complex') + 1];
+  };
+  assert.ok(plan(old).includes(`[ca]${STUDIO_SOUND}[voice]`), 'Classic at full strength is exactly the old chain');
+  assert.match(plan(F.normalize({ enhance: true, enhanceEngine: 'rnnoise' })), /arnndn=m=\/m\/sh\.rnnn:mix=0\.80/);
+  assert.match(plan(F.normalize({ enhance: true, enhanceEngine: 'classic', enhanceStrength: 0.5 })), /anlmdn=s=3\.50/);
+  assert.equal(F.normalize({ enhanceEngine: 'magic' }).enhanceEngine, 'rnnoise');
+});
+
+test('clip settings: strength stays between 0 and 1 and loudness only takes the two targets', () => {
   assert.equal(F.normalize({ enhanceStrength: 3 }).enhanceStrength, 1);
   assert.equal(F.normalize({}).loudness, null);
   assert.equal(F.normalize({ loudness: '-14' }).loudness, -14);
@@ -65,7 +80,7 @@ test('the bundled model is there and a real export with Studio Sound uses it, fr
   assert.match(fs.readFileSync(RNNOISE_MODEL, 'utf8').slice(0, 40), /^rnnoise-nu model file version 1/);
   const src = noisy();
   const out = path.join(dir, 'clean.mp4');
-  await renderEdit({ input: src, output: out, ranges: [[0, 6]], hasVideo: true, hasAudio: true, duration: 6, width: 160, height: 120, fps: 30, clip: F.normalize({ enhance: true }) });
+  await renderEdit({ input: src, output: out, ranges: [[0, 6]], hasVideo: true, hasAudio: true, duration: 6, width: 160, height: 120, fps: 30, clip: F.normalize({ enhance: true, enhanceEngine: 'rnnoise' }) });
   const info = await probe(out);
   assert.ok(info.hasAudio && Math.abs(info.duration - 6) < 0.1, `duration ${info.duration}`);
   // The hiss in the pauses is far quieter after cleaning, measured against the speech (the
@@ -73,9 +88,9 @@ test('the bundled model is there and a real export with Studio Sound uses it, fr
   const before = contrast(src);
   const after = contrast(out);
   assert.ok(after > before + 10, `speech over hiss ${before.toFixed(1)} dB before, ${after.toFixed(1)} dB after`);
-  // And it really went through RNNoise: the same export without the model (the old chain) differs.
+  // And it really went through RNNoise: the same export on Classic differs.
   const old = path.join(dir, 'old.mp4');
-  await renderEdit({ input: src, output: old, ranges: [[0, 6]], hasVideo: true, hasAudio: true, duration: 6, width: 160, height: 120, fps: 30, clip: F.normalize({ enhance: true }), rnnoiseModel: null });
+  await renderEdit({ input: src, output: old, ranges: [[0, 6]], hasVideo: true, hasAudio: true, duration: 6, width: 160, height: 120, fps: 30, clip: F.normalize({ enhance: true, enhanceEngine: 'classic' }) });
   const pcm = (f) => execFileSync(ffmpeg, ['-hide_banner', '-i', f, '-vn', '-ac', '1', '-ar', '16000', '-f', 's16le', '-'], { maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] });
   const a = pcm(out);
   const b = pcm(old);
@@ -85,6 +100,8 @@ test('the bundled model is there and a real export with Studio Sound uses it, fr
   // The preview file is made the same way.
   const preview = path.join(dir, 'preview.m4a');
   await enhanceAudio(src, preview, { strength: 0.8 });
+  assert.ok((await probe(preview)).hasAudio);
+  await enhanceAudio(src, preview, { strength: 1, engine: 'classic' });
   assert.ok((await probe(preview)).hasAudio);
 });
 

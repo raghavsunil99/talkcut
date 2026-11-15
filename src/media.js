@@ -205,14 +205,15 @@ async function findFaces(filePath, duration, workDir, { samples = 16 } = {}) {
 // app.asar.unpacked, where ffmpeg can read it.
 const RNNOISE_MODEL = path.join(__dirname, '..', 'assets', 'rnnoise', 'sh.rnnn').replace('app.asar', 'app.asar.unpacked');
 
-// The Studio Sound filter chain for a strength (0 to 1), as the export uses it.
-function studioChain(strength = 0.8) {
-  return voiceChain({ engine: 'rnnoise', strength, modelPath: RNNOISE_MODEL, filterPath });
+// The Studio Sound filter chain for an engine ('rnnoise' or 'classic') and strength (0 to 1),
+// as the export uses it.
+function studioChain(strength = 0.8, engine = 'rnnoise') {
+  return voiceChain({ engine: engine === 'classic' ? 'nlm' : 'rnnoise', strength, modelPath: RNNOISE_MODEL, filterPath });
 }
 
 // The cleaned voice as its own audio file, for previewing Studio Sound.
-async function enhanceAudio(filePath, outPath, { strength = 0.8 } = {}) {
-  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-af', `${studioChain(strength)},aresample=48000`, '-c:a', 'aac', '-b:a', '160k', outPath]);
+async function enhanceAudio(filePath, outPath, { strength = 0.8, engine = 'rnnoise' } = {}) {
+  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-af', `${studioChain(strength, engine)},aresample=48000`, '-c:a', 'aac', '-b:a', '160k', outPath]);
 }
 
 // Integrated loudness (LUFS) and true peak (dBTP) of a file's sound, as EBU R128 measures it.

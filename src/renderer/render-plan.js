@@ -228,9 +228,10 @@
     }
     if (hasAudio) {
       const gain = muted ? 0 : volume;
-      // Studio Sound uses RNNoise when its model is available (the desktop app ships it), and the
-      // original filter chain otherwise (the phone build).
-      const clean = enhance ? voiceChain({ engine: rnnoiseModel ? 'rnnoise' : 'nlm', strength: L.props.enhanceStrength ?? 1, modelPath: rnnoiseModel, filterPath }) : null;
+      // Studio Sound: RNNoise when chosen and its model is available (the desktop app ships it),
+      // otherwise the original filter chain ('classic', and always on the phone build).
+      const engine = L.props.enhanceEngine === 'classic' || !rnnoiseModel ? 'nlm' : 'rnnoise';
+      const clean = enhance ? voiceChain({ engine, strength: L.props.enhanceStrength ?? 1, modelPath: rnnoiseModel, filterPath }) : null;
       const chain = [clean, gain !== 1 ? `volume=${gain.toFixed(3)}` : null].filter(Boolean);
       parts.push(`[ca]${chain.length ? chain.join(',') : 'anull'}[voice]`);
       let mixed = 'voice';

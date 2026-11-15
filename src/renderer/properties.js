@@ -77,6 +77,10 @@
       this.renderers.push(['enhanceStrength', this.slider('prop-strength', {
         min: 0, max: 100, step: 5, toValue: (v) => v / 100, fromValue: (v) => Math.round(v * 100), apply: (v) => ({ enhanceStrength: v, enhance: true }),
       })]);
+      $('prop-engine').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+        // Each engine starts at its own usual strength.
+        this.set({ enhance: true, enhanceEngine: b.dataset.value, enhanceStrength: b.dataset.value === 'classic' ? 1 : 0.8 }, true);
+      }));
       $('prop-loudness').addEventListener('change', () => this.set({ loudness: $('prop-loudness').value ? Number($('prop-loudness').value) : null }, true));
       // frame
       const canvas = $('prop-canvas');
@@ -154,6 +158,8 @@
       $('prop-mute').classList.toggle('on', p.muted);
       $('prop-enhance').checked = p.enhance;
       $('prop-strength-row').classList.toggle('dim', !p.enhance);
+      $('prop-engine').classList.toggle('dim', !p.enhance);
+      $('prop-engine').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.value === p.enhanceEngine));
       $('prop-loudness').value = p.loudness == null ? '' : String(p.loudness);
       $('prop-canvas').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.value === p.canvas));
       $('prop-custom').hidden = p.canvas !== 'custom';

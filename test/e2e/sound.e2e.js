@@ -17,13 +17,18 @@ test('Studio Sound strength and a -14 LUFS target reach the project and the expo
   try {
     await H.openFromHome(page);
     if (!(await page.locator('#prop-enhance').isVisible())) await page.click('.rail-btn[data-panel="properties"]');
-    assert.equal((await clip(page)).enhanceStrength, 0.8);
+    assert.deepEqual([(await clip(page)).enhanceEngine, (await clip(page)).enhanceStrength], ['rnnoise', 0.8]);
     await page.locator('#prop-enhance').check();
+    // Both are offered: Classic goes back to its full strength, AI to 80%.
+    await page.locator('#prop-engine button[data-value="classic"]').click();
+    assert.deepEqual([(await clip(page)).enhanceEngine, (await clip(page)).enhanceStrength], ['classic', 1]);
+    await page.locator('#prop-engine button[data-value="rnnoise"]').click();
+    assert.deepEqual([(await clip(page)).enhanceEngine, (await clip(page)).enhanceStrength], ['rnnoise', 0.8]);
     await page.locator('#prop-strength-num').fill('60');
     await page.locator('#prop-strength-num').press('Enter');
     await page.locator('#prop-loudness').selectOption('-14');
     const c = await clip(page);
-    assert.deepEqual([c.enhance, c.enhanceStrength, c.loudness], [true, 0.6, -14]);
+    assert.deepEqual([c.enhance, c.enhanceEngine, c.enhanceStrength, c.loudness], [true, 'rnnoise', 0.6, -14]);
     await H.until(() => H.readProject(file).clip?.loudness === -14, 'the autosave');
 
     await page.click('#btn-export');
