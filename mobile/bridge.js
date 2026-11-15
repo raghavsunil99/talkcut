@@ -1,4 +1,4 @@
-/* global FFmpegWASM, Capacitor, CutlineCaptions, CutlineEdits, CutlineFrame, CutlineText, CutlineRenderPlan */
+/* global FFmpegWASM, CutlineCaptions, CutlineEdits, CutlineFrame, CutlineText, CutlineRenderPlan */
 // Android version of the desktop app's back end. The editor (src/renderer) talks to
 // `window.cutline`; on the desktop that is Electron's preload, on Android it is this file:
 //   files       picked videos, kept in the app's storage (IndexedDB) so projects reopen

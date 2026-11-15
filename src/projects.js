@@ -13,6 +13,42 @@ function safeName(name) {
   return String(name ?? '').replace(/[/\\:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled';
 }
 
+// What the editor gets back when a project is opened (everything the project file holds except
+// the media and B-roll, which main.js checks on disk).
+function openFields(project) {
+  return {
+    words: project.words,
+    deleted: project.deleted ?? [],
+    cutGaps: project.cutGaps ?? [],
+    language: project.language ?? null,
+    captions: project.captions ?? null,
+    clip: project.clip ?? null,
+    splits: project.splits ?? [],
+    rangeCuts: project.rangeCuts ?? [],
+    tracks: project.tracks ?? null,
+    speakers: project.speakers ?? null,
+    extras: project.extras ?? null,
+  };
+}
+
+// Files used by items on tracks that are no longer on disk, once per file.
+async function missingTrackFiles(tracks, exists = (p) => fs.access(p).then(() => true, () => false)) {
+  const seen = new Map();
+  for (const track of tracks ?? []) {
+    for (const item of track.items ?? []) {
+      if (item.path && !seen.has(item.path)) seen.set(item.path, { path: item.path, name: item.name || path.basename(item.path) });
+    }
+  }
+  const missing = [];
+  for (const entry of seen.values()) if (!(await exists(entry.path))) missing.push(entry);
+  return missing;
+}
+
+// The same tracks with every item that used `from` pointing at `to`.
+function relinkTracks(tracks, from, to) {
+  return (tracks ?? []).map((t) => ({ ...t, items: (t.items ?? []).map((i) => (i.path === from ? { ...i, path: to } : i)) }));
+}
+
 function createProjects({ dir, readSettings, writeSettings }) {
   async function ensureDir() {
     await fs.mkdir(dir, { recursive: true });
@@ -127,4 +163,4 @@ function createProjects({ dir, readSettings, writeSettings }) {
   };
 }
 
-module.exports = { createProjects, safeName, EXTENSION, OLD_EXTENSIONS };
+module.exports = { createProjects, openFields, missingTrackFiles, relinkTracks, safeName, EXTENSION, OLD_EXTENSIONS };

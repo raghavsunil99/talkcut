@@ -223,16 +223,18 @@
   }
 
   let saving = null;
-  async function autosave() {
-    if (!state.projectPath || !hasProject()) return;
-    if (state.busy) { autosaveTimer = setTimeout(() => autosave(), 1500); return; }
+  // Resolves to false when the save failed. `force` saves even while a long job is running
+  // (closing the window must not wait for one).
+  async function autosave(force = false) {
+    if (!state.projectPath || !hasProject()) return true;
+    if (state.busy && !force) { autosaveTimer = setTimeout(() => autosave(), 1500); return true; }
     if (saving) await saving;
     setSaveStatus('Saving…');
     saving = cutline.saveProject(buildProject(), state.projectPath, false, true)
-      .then(() => { if (!autosaveTimer || state.dirty) setDirty(false); })
-      .catch((err) => { setSaveStatus('Not saved', true); showError(err); })
+      .then(() => { if (!autosaveTimer || state.dirty) setDirty(false); return true; })
+      .catch((err) => { setSaveStatus('Not saved', true); showError(err); return false; })
       .finally(() => { saving = null; });
-    await saving;
+    return saving;
   }
 
   function itemCount() {
@@ -335,9 +337,8 @@
 
   const panels = new CutlinePanels.Panels({
     onCaptionsChange: (settings) => {
-      state.captions = settings;
-      if (hasProject()) setDirty(true);
-      refresh();
+      if (hasProject()) commit({ captions: settings });
+      else { state.captions = settings; refresh(); }
       if (settings.enabled && state.media && !state.media.hasVideo) toast('Captions are burned into video, so they need a video file.');
     },
     onInsertMedia: (media) => insertMedia(media),
@@ -776,7 +777,7 @@
   // ---------- edits ----------
 
   function snapshot() {
-    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions };
+    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -788,16 +789,17 @@
     if (snap.clip) state.clip = snap.clip;
     if (snap.splits) state.splits = snap.splits;
     if (snap.rangeCuts) state.rangeCuts = snap.rangeCuts;
+    if (snap.speakers) state.speakers = snap.speakers;
     if (snap.captions && snap.captions !== state.captions) { state.captions = snap.captions; panels.setCaptions(state.captions); }
     if (state.itemSel && !T.find(state.tracks, state.itemSel)) state.itemSel = null;
     state.textVersion++;
   }
 
-  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts }) {
+  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
     state.undo.push(snapshot());
     if (state.undo.length > 500) state.undo.shift();
     state.redo = [];
-    restore({ words, deleted, cutGaps, tracks, clip, splits, rangeCuts });
+    restore({ words, deleted, cutGaps, tracks, clip, splits, rangeCuts, captions, speakers });
     setDirty(true);
     refresh();
   }
@@ -1133,8 +1135,7 @@
       for (const [id, name] of Object.entries(state.speakers)) items.push(item(name, () => assignSpeaker(range, id), id === currentId));
       items.push(item('+ New speaker…', () => {
         const id = SP.newId(state.speakers);
-        state.speakers = { ...state.speakers, [id]: `Speaker ${Object.keys(state.speakers).length + 1}` };
-        assignSpeaker(range, id);
+        assignSpeaker(range, id, { ...state.speakers, [id]: `Speaker ${Object.keys(state.speakers).length + 1}` });
         requestAnimationFrame(() => renameSpeaker(id));
       }));
     } else {
@@ -1149,17 +1150,16 @@
     speakerMenu.style.top = `${Math.min(window.innerHeight - speakerMenu.offsetHeight - 8, y)}px`;
   }
 
-  function assignSpeaker([from, to], id) {
+  // `names` lets a new speaker be added in the same undo step as the words they are given.
+  function assignSpeaker([from, to], id, names = state.speakers) {
     const words = SP.assign(state.words, from, to, id);
-    state.speakers = SP.prune(words, state.speakers);
-    commit({ words });
+    commit({ words, speakers: SP.prune(words, names) });
     renderTranscript();
     refresh();
   }
 
   function clearSpeakers() {
-    state.speakers = {};
-    commit({ words: state.words.map(({ speaker, ...rest }) => rest) });
+    commit({ words: state.words.map(({ speaker, ...rest }) => rest), speakers: {} });
     renderTranscript();
     refresh();
   }
@@ -1180,7 +1180,7 @@
       if (done) return;
       done = true;
       const name = input.value.trim();
-      if (keep && name) { state.speakers = { ...state.speakers, [id]: name }; setDirty(true); }
+      if (keep && name && name !== state.speakers[id]) commit({ speakers: { ...state.speakers, [id]: name } });
       renderTranscript();
       refresh();
     };
@@ -1925,7 +1925,7 @@
     resetFor(media);
     state.loadingMedia = true;
     refresh();
-    const choice = await askTranscription(media);
+    let choice = await askTranscription(media);
     if (!choice) {
       state.loadingMedia = false;
       state.media = null;
@@ -1939,11 +1939,19 @@
     refresh();
     try {
       let message;
+      let failure = null;
       if (choice === 'skip') {
         message = 'Opened without a transcript. Use Transcribe… in the transcript pane whenever you want one.';
       } else {
-        const { count, langName } = await transcribeInto(choice);
-        message = `Transcribed ${count} words (${langName})`;
+        try {
+          const { count, langName } = await transcribeInto(choice);
+          message = `Transcribed ${count} words (${langName})`;
+        } catch (err) {
+          // Keep the video open; it can be edited without a transcript and transcribed later.
+          failure = String(err?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+          choice = 'skip';
+          message = `Transcription failed: ${failure.replace(/[.\s]*$/, '')}. The video is open without a transcript. Use Transcribe… in the transcript pane to try again.`;
+        }
       }
       state.loadingMedia = false;
       renderTranscript();
@@ -1954,7 +1962,7 @@
         els.docTitle.textContent = projectName();
       } catch (err) { console.error(err); }
       setDirty(false);
-      toast(choice === 'skip' ? message : `${message} and saved as “${projectName()}”.`, { ms: 6000 });
+      toast(choice === 'skip' ? message : `${message} and saved as “${projectName()}”.`, failure ? { error: true, ms: 12000 } : { ms: 6000 });
     } catch (err) {
       state.loadingMedia = false;
       els.transcriptWrap.hidden = true;
@@ -2682,7 +2690,9 @@
   // Closing the window: finish the pending autosave first.
   cutline.onBeforeClose(async () => {
     clearTimeout(autosaveTimer);
-    try { await autosave(); } finally { cutline.closeNow(); }
+    // Close only once the project is safely on disk; otherwise stay open (the error is shown).
+    if (await autosave(true)) cutline.closeNow();
+    else cutline.cancelClose?.();
   });
 
   // ---------- canvas editing ----------

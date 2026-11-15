@@ -188,7 +188,6 @@
   function buildAss({ words, deleted, settings, language, width, height, toEdited }) {
     const s = settingsOf(settings);
     const p = PRESETS[s.preset];
-    const short = Math.min(width, height);
     const fontSize = Math.round(fontPx(s, width, height));
     const custom = s.position === 'custom';
     const pos = custom ? `{\\an5\\pos(${Math.round(s.x * width)},${Math.round(s.y * height)})}` : '';

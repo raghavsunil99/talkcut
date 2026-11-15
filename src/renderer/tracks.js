@@ -1,4 +1,3 @@
-/* global CutlineEdits */
 // Extra timeline tracks above and below the main clip.
 //   overlay tracks: videos, images and text drawn over the picture (later tracks on top)
 //   audio tracks:   music and sound effects mixed with the voice

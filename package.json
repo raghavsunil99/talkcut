@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/edits.test.js test/frame.test.js test/tracks.test.js test/captions.test.js test/text.test.js test/speakers.test.js test/stock.test.js test/cloud.test.js test/keystore.test.js test/projects.test.js test/media.test.js test/transcribe.test.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:e2e": "node --test --test-concurrency=1 --test-timeout=90000 \"test/e2e/*.e2e.js\"",
+    "lint": "eslint .",
     "build:whisper": "sh scripts/build-whisper.sh",
     "build:facedetect": "sh scripts/build-facedetect.sh",
     "dist:win": "ELECTRON_BUILDER_NSIS_DIR=${ELECTRON_BUILDER_NSIS_DIR:-$HOME/Library/Caches/cutline-nsis-3.13} electron-builder --win nsis --x64",
@@ -26,10 +28,14 @@
     "@capacitor/core": "^7.4.3",
     "@capacitor/filesystem": "^7.1.4",
     "@capacitor/share": "^7.0.2",
+    "@eslint/js": "^9.39.5",
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "electron": "^38.8.6",
     "electron-builder": "^26.0.12",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
+    "playwright-core": "^1.65.1",
     "resedit": "^2.0.3"
   },
   "author": {

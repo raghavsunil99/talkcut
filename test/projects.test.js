@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createProjects, safeName } = require('../src/projects.js');
+const { createProjects, safeName, openFields, missingTrackFiles, relinkTracks } = require('../src/projects.js');
 
 function setup() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cutline-projects-'));
@@ -72,4 +72,34 @@ test('recent list: newest first, drops missing files, follows rename and duplica
     fs.rmSync(b);
     assert.ok(!(await projects.recent()).some((r) => r.name === 'B'), 'missing project dropped');
   } finally { cleanup(); }
+});
+
+test('a reopened project keeps its speaker names and everything else the editor saved', () => {
+  const saved = {
+    ...sample, language: 'te', speakers: { s1: 'Raghav', s2: 'Guest' }, cutGaps: [0], splits: [1.5], rangeCuts: [[2, 3]],
+    captions: { enabled: true }, clip: { speed: 1.5 }, tracks: [{ id: 't1', type: 'audio', items: [] }], extras: { a: 1 },
+  };
+  const fields = openFields(saved);
+  assert.deepEqual(fields.speakers, { s1: 'Raghav', s2: 'Guest' });
+  for (const key of ['language', 'cutGaps', 'splits', 'rangeCuts', 'captions', 'clip', 'tracks', 'extras', 'words']) assert.deepEqual(fields[key], saved[key], key);
+  // Older projects without these fields still open.
+  const old = openFields(sample);
+  assert.equal(old.speakers, null);
+  assert.deepEqual(old.deleted, []);
+  assert.deepEqual(old.splits, []);
+});
+
+test('files used on tracks that are gone are found once each, and can be relinked', async () => {
+  const tracks = [
+    { id: 't1', type: 'overlay', items: [{ id: 'a', path: '/m/broll.mp4', name: 'broll.mp4' }, { id: 'b', kind: 'text', text: 'Hi' }, { id: 'c', path: '/m/here.png' }] },
+    { id: 't2', type: 'audio', items: [{ id: 'd', path: '/m/broll.mp4', name: 'broll.mp4' }, { id: 'e', path: '/m/music.mp3' }] },
+  ];
+  const present = new Set(['/m/here.png']);
+  const missing = await missingTrackFiles(tracks, async (p) => present.has(p));
+  assert.deepEqual(missing.map((m) => m.path), ['/m/broll.mp4', '/m/music.mp3']);
+  assert.equal(missing[0].name, 'broll.mp4');
+  const fixed = relinkTracks(tracks, '/m/broll.mp4', '/new/clip.mp4');
+  assert.deepEqual(fixed.flatMap((t) => t.items).map((i) => i.path), ['/new/clip.mp4', undefined, '/m/here.png', '/new/clip.mp4', '/m/music.mp3']);
+  assert.equal(tracks[0].items[0].path, '/m/broll.mp4', 'the original is not changed');
+  assert.deepEqual(await missingTrackFiles(null), []);
 });
