@@ -46,10 +46,12 @@ test('buildAss writes a highlighted event per word in edited time', () => {
     width: 1080, height: 1920, toEdited: (t) => t,
   });
   assert.match(ass, /PlayResX: 1080/);
-  assert.match(ass, /Style: Cap,Kohinoor Telugu,81,/);
+  // 81 CSS px (7.5% of the 1080 px width) is 119.7 in libass units: see C.LINE_HEIGHT.
+  assert.match(ass, /Style: Cap,Noto Sans Telugu,119\.7,/);
   const events = ass.split('\n').filter((l) => l.startsWith('Dialogue:'));
   assert.equal(events.length, words.length);
-  assert.match(events[2], /Dialogue: 0,0:00:00\.70,0:00:01\.10,.*\{\\c&H004DD8FF\}account\{\\c&H00FFFFFF\}/);
+  // English words inside a Telugu caption switch to Noto Sans for their letters (see withFontRuns).
+  assert.match(events[2], /Dialogue: 0,0:00:00\.70,0:00:01\.10,.*\{\\c&H004DD8FF\}\{\\fnNoto Sans\\fs123\}account\{\\fnNoto Sans Telugu\\fs119\.7\}\{\\c&H00FFFFFF\}/);
 });
 
 test('buildAss shifts captions with cuts and the subtitle preset has one event per line', () => {
@@ -61,7 +63,7 @@ test('buildAss shifts captions with cuts and the subtitle preset has one event p
   assert.equal(events.length, 2);
   // starts at 3.0 - 0.9 and holds 0.6 s past the last word (3.8 + 0.6 - 0.9)
   assert.match(events[1], /^Dialogue: 0,0:00:02\.10,0:00:03\.50,/);
-  assert.match(ass, /Style: Cap,Avenir Next,/);
+  assert.match(ass, /Style: Cap,Noto Sans,/);
 });
 
 test('assColor converts #RRGGBB to ASS &HAABBGGRR', () => {

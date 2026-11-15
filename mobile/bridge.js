@@ -13,7 +13,7 @@
     mr: 'Marathi', bn: 'Bengali', es: 'Spanish', fr: 'French', de: 'German',
   };
   const ISO3 = { tel: 'te', hin: 'hi', tam: 'ta', kan: 'kn', mal: 'ml', mar: 'mr', ben: 'bn', eng: 'en', spa: 'es', fra: 'fr', deu: 'de' };
-  const FONT_FILES = ['NotoSans.ttf', 'NotoSansTelugu.ttf', 'NotoSansTamil.ttf', 'NotoSansMalayalam.ttf', 'NotoSansKannada.ttf', 'NotoSansDevanagari.ttf', 'NotoSansBengali.ttf'];
+  const FONT_FILES = Object.keys(CutlineCaptions.FONT_FILES);
   const plugins = () => window.Capacitor?.Plugins ?? {};
 
   // ---------- events ----------

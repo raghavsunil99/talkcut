@@ -141,7 +141,7 @@ Speech models download on first use into the app's data folder (`~/Library/Appli
 - **Correct spelling** without changing the video: double-click a word, press **Enter** on a selection, or just start typing over it. Enter saves, Esc cancels.
 - **Timeline** (bottom): ruler, filmstrip, word blocks, pause blocks and waveform, laid out as the edited result. Click to seek, click a word block to select it, click a pause block (for example `1.2s`) and press **⌫** to shorten it to 0.2 s. ⌘-scroll or **− / +** zooms; **Fit** shows the whole edit.
 - **Remove fillers** (⇧⌘F) cuts "um", "uh" and similar words. **Shorten pauses** (⇧⌘P) shortens every pause longer than a second.
-- **Captions** (right sidebar, CC): turn them on, pick a style (Highlight, One word, Bold red, Boxed, Clean, Subtitle), position and size. They follow the speech word by word in the preview and are burned into the exported video. Telugu, Hindi, Bangla, Kannada, Tamil and Malayalam use matching macOS fonts.
+- **Captions** (right sidebar, CC): turn them on, pick a style (Highlight, One word, Bold red, Boxed, Clean, Subtitle), position and size. They follow the speech word by word in the preview and are burned into the exported video. Telugu, Hindi, Bengali, Kannada, Tamil and Malayalam captions use the bundled Noto Sans fonts (below).
 - **Media** (right sidebar): *My media* adds your own videos or photos; *Stock* searches free Pexels videos and photos (needs a free API key from [pexels.com/api](https://www.pexels.com/api/), stored encrypted in the macOS keychain). Clicking an item lays it over the picture at the playhead as B-roll while the voice keeps playing. On the B-roll track, drag a block to move it, drag its right edge to change its length, or select it and press ⌫ to remove it.
 - **Properties** (right sidebar): speed and duration (type a length to fit the speed to it), audio volume up to 200% and mute, frame shape (Original, 9:16, 1:1, 4:5, 16:9) and background colour, scale, X/Y position, 90° rotation, and crop on each side. The preview shows exactly what the export will be; ⌘Z undoes changes.
 - **Timeline tools** (tool menu next to zoom, or the keys): **Select** (A) words, pauses, B-roll and blade pieces; **Hand** (H) drag to scroll; **Blade** (B) click to split the clip, then select a piece and press ⌫; **Range** (R) drag across any stretch, even mid-word, and press ⌫; **Slip** (Y) drag a B-roll video to change which part of it plays.
@@ -183,6 +183,7 @@ npm run test:e2e
 
 - Recordings are cut at their quietest moments into clips of at most 8 seconds, transcribed independently. In longer windows Whisper drops repeated takes and late phrases, and on code-mixed speech one bad stretch can swallow the rest; short clips avoid both.
 - A second pass finds speech that still has no words and transcribes just those stretches again without the style prompt, falling back to the Accurate model when Fast returns nothing (it does for some Telugu).
+- Fonts: captions and titles use Noto Sans (SIL Open Font License, `assets/fonts/OFL.txt`) in the preview and in the export: Latin letters in Noto Sans, each Indian script in its own Noto family, Regular and Bold. They are static files cut from Google's variable fonts by `scripts/make-static-fonts.py`, because ffmpeg's subtitle renderer cannot choose a weight inside a variable font. libass reads a font size as the font's whole line height, so export sizes are the preview size times each font's factor (`LINE_HEIGHT` in `captions.js`; a test recomputes it from the files), and lines are broken greedily (`WrapStyle: 1`) like the preview, which together make a caption the same size and break at the same words in both. A caption's weight is Regular or Bold only (700 and up is Bold).
 - Export puts the video on a constant frame grid at the source's own frame rate (up to 60) and cuts on whole frames, so each kept piece is exactly as long as the timeline says and captions stay in step after any number of cuts. Each side of a cut fades the sound over 5 ms so it does not click. Kept pieces are read in groups of 32, each through its own seek into the file, which keeps export time from growing with the number of cuts.
 - Word times come from whisper.cpp's DTW alignment (`--dtw`), shifted back from each clip to the original timeline.
 - For Indian languages Whisper is given a short code-mixed example sentence, so English words come out in English letters ("account setup చేయడానికి") as people write them, instead of in the native script.
@@ -213,7 +214,7 @@ One-time setup on an Apple-silicon Mac (electron-builder's bundled NSIS and Wine
 `build/HOW TO INSTALL TALKCUT.txt` is the guide for people installing it.
 
 On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is hidden
-(it uses macOS Vision), and captions use Nirmala UI / Segoe UI.
+(it uses macOS Vision), and captions use the same bundled Noto Sans fonts as on the Mac.
 
 ## Android app
 
@@ -224,7 +225,7 @@ On Windows, transcription runs on the CPU (slower than on a Mac), Auto-frame is 
   ffmpeg.wasm running the same export recipe (`src/renderer/render-plan.js`). Finished videos
   are saved to Documents/Talkcut and offered to the share sheet.
 - `mobile/mobile.css` is the phone layout, `mobile/touch.js` turns finger drags into the mouse
-  events the editor uses, and `mobile/fonts` holds Noto fonts (OFL) for the caption scripts.
+  events the editor uses, and the caption fonts live in `assets/fonts` (see below).
 - `scripts/build-android-web.js` assembles `mobile/www` (not in git) for Capacitor.
 - Needs JDK 21 (`brew install openjdk@21`) and the Android SDK (`android/local.properties`).
 - Release signing key: `android-signing/` (not in git). Keep it: updates must use the same key.

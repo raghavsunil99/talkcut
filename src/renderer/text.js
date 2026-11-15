@@ -66,8 +66,8 @@
     el.style.justifyContent = 'center';
     el.style.alignItems = s.align === 'left' ? 'flex-start' : s.align === 'right' ? 'flex-end' : 'center';
     el.style.textAlign = s.align;
-    el.style.fontFamily = `"${fontFamily(language)}", "${C.LATIN_FONT}", sans-serif`;
-    el.style.fontWeight = String(s.weight);
+    el.style.fontFamily = C.fontStack(language);
+    el.style.fontWeight = s.weight >= 600 ? '700' : '400'; // as drawn in the export: \b is on from 600
     el.style.fontSize = `${size}px`;
     el.style.lineHeight = '1.18';
     el.style.color = s.color;
@@ -85,7 +85,7 @@
         const span = document.createElement('span');
         span.textContent = line || ' ';
         // Lower third: the name line is bigger, the second line smaller and in the accent colour.
-        if (item.style?.preset === 'lower' && i > 0) { span.style.fontSize = '0.72em'; span.style.color = s.accent; span.style.fontWeight = '600'; }
+        if (item.style?.preset === 'lower' && i > 0) { span.style.fontSize = '0.72em'; span.style.color = s.accent; span.style.fontWeight = '400'; }
         if (item.style?.preset === 'title' && i > 0) span.style.color = s.accent;
         return span;
       }));
@@ -121,7 +121,7 @@
       '[Script Info]', 'ScriptType: v4.00+', `PlayResX: ${width}`, `PlayResY: ${height}`, 'WrapStyle: 2', 'ScaledBorderAndShadow: yes', '',
       '[V4+ Styles]',
       'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-      `Style: Text,${font},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`,
+      `Style: Text,${font},${C.assSize(font, 48)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1`,
       '', '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
     ];
     const t = (sec) => {
@@ -153,12 +153,14 @@
         events.push(`Dialogue: ${layer * 2},${t(item.start)},${t(item.end)},Text,,0,0,0,,{\\an7\\pos(${Math.round(bx)},${Math.round(by)})\\bord0\\shad0\\1c${bg.color}\\1a&H${a}&${fade}\\p1}${shape}{\\p0}`);
       }
       const lines = linesOf(item).map((line, i) => {
-        if (item.style?.preset === 'lower' && i > 0) return `{\\fs${Math.round(size * 0.72)}\\c${tagColor(s.accent).color}\\b0}${esc(line)}`;
-        if (item.style?.preset === 'title' && i > 0) return `{\\c${tagColor(s.accent).color}}${esc(line)}`;
-        return esc(line);
+        const small = Math.round(size * 0.72);
+        const body = C.withFontRuns(esc(line), language, i > 0 && item.style?.preset === 'lower' ? small : size);
+        if (item.style?.preset === 'lower' && i > 0) return `{\\fs${C.assSize(font, small)}\\c${tagColor(s.accent).color}\\b0}${body}`;
+        if (item.style?.preset === 'title' && i > 0) return `{\\c${tagColor(s.accent).color}}${body}`;
+        return body;
       });
       const shadow = s.shadow ? `\\shad${Math.max(1, Math.round(size * 0.05))}\\4a&H60&` : '\\shad0';
-      events.push(`Dialogue: ${layer * 2 + 1},${t(item.start)},${t(item.end)},Text,,0,0,0,,{\\an${an}\\pos(${Math.round(px)},${Math.round(py)})\\fs${size}\\b${s.weight >= 600 ? 1 : 0}\\c${tagColor(s.color).color}\\alpha${textAlpha}\\bord0${shadow}${fade}}${lines.join('\\N')}`);
+      events.push(`Dialogue: ${layer * 2 + 1},${t(item.start)},${t(item.end)},Text,,0,0,0,,{\\an${an}\\pos(${Math.round(px)},${Math.round(py)})\\fs${C.assSize(font, size)}\\b${s.weight >= 600 ? 1 : 0}\\c${tagColor(s.color).color}\\alpha${textAlpha}\\bord0${shadow}${fade}}${lines.join('\\N')}`);
     });
     return `${header.join('\n')}\n${events.join('\n')}\n`;
   }

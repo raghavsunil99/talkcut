@@ -299,6 +299,13 @@ Do these in the order listed. 1.1 to 1.3 are the safety net for 1.4.
 7. **Model:** Opus 5.5
 
 #### 1.8 Bundled caption fonts
+
+**Status: done, with three changes to the approach below.** Captions and titles use bundled Noto Sans in the preview and the export. What the tests found:
+- The variable fonts from `mobile/fonts` could not be used as they were: ffmpeg's libass draws a variable font at regular weight whatever Bold says (measured), so every bold style would have lost its weight. Static Regular and Bold files are now cut from them (`scripts/make-static-fonts.py`, fontTools). That also made the folder smaller: 3.2 MB instead of 5.5 MB.
+- libass reads font size as the font's whole line height, so exports drew text at about 65% of the preview's size. Sizes are now multiplied by each font's factor; a test recomputes the factors from the files.
+- libass balanced the lines of a wrapped caption while the preview fills the first line first, so they broke at different words. Export now breaks greedily (`WrapStyle: 1`).
+- English words inside a Telugu caption fell back to whatever system font had the letters; the export now switches font around each Latin run (part of 3.1, done here because it was needed for the match).
+Result on ten realistic Telugu-English captions: the widest line is within 3 px of the preview (1080 px frame) for regular and bold, and the preview and export break at the same words. Not checked: a packaged build (`npm run dist:mac` needs the whisper and face-finder binaries, which are not built here), so `asarUnpack` is untested; the preview weight is now Regular or Bold only, so styles that were 600 to 900 look slightly different.
 1. **Why:** export depends on macOS system font paths and fails silently when one is missing; a bundled set is also the base for custom fonts.
 2. **Files:** `src/renderer/captions.js` (`fontFor`, `SCRIPT_FONTS`), `src/media.js` (`CAPTION_FONT_FILES`, `prepareFontsDir`), `package.json` (`extraResources`), new `assets/fonts`, `styles.css` (`@font-face`).
 3. **Approach:**
