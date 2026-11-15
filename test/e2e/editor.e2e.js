@@ -167,3 +167,36 @@ test('a file passed on the command line opens (npm start -- clip.mp4)', TIMEOUT,
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('playback skips a cut and the caption preview follows the speech', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  H.makeProject(dir, H.makeVideo(dir), { deleted: [1, 2], captions: { enabled: true, preset: 'oneword' } });
+  const { app, page } = await H.launch(dir);
+  try {
+    await H.openFromHome(page);
+    // Start on "one" (0.2 s). "two three" (0.8 s to 2.0 s) are cut, so playback jumps to "four".
+    await page.locator('#transcript .w[data-i="0"]').click();
+    // Sample the playhead every frame for 2 s while playing.
+    const samples = page.evaluate(() => new Promise((resolve) => {
+      const v = document.getElementById('video');
+      const seen = [];
+      const end = performance.now() + 2000;
+      const tick = () => { seen.push(v.currentTime); if (performance.now() < end) requestAnimationFrame(tick); else resolve(seen); };
+      requestAnimationFrame(tick);
+    }));
+    await page.click('#btn-play');
+    const seen = await samples;
+    assert.ok(Math.max(...seen) > 2.05, `playback reached ${Math.max(...seen)} s`);
+    const inside = seen.filter((t) => t > 0.95 && t < 1.95);
+    assert.deepEqual(inside, [], 'the playhead never shows the cut stretch');
+    const caption = await H.until(async () => {
+      const t = await page.locator('#caption-layer:not([hidden]) .caption-line').textContent().catch(() => '');
+      return t.trim() ? t.trim() : null;
+    }, 'a caption');
+    assert.ok(!/TWO|THREE/.test(caption), `cut words must not be captioned, got ${caption}`);
+    await page.click('#btn-play');
+  } finally {
+    await H.closeApp(app);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
