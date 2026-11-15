@@ -194,6 +194,12 @@ npm run test:e2e
 
 `npm run dist:mac` builds `dist/Talkcut-by-Raghav-<version>-mac-arm64.dmg` (Apple silicon, macOS 13+), ad-hoc signed by `build/afterPack.js`, with ffmpeg, whisper-cli and the face finder bundled.
 
+### New versions
+
+The app is not signed with an Apple developer certificate, so macOS cannot update it in place. Instead the Projects screen checks once a day whether GitHub has a newer release (a public read of the latest release; it sends nothing about you) and shows a notice with a Download button that opens the release page. Offline or rate-limited, it stays quiet. **Later** hides that version.
+
+To release: raise `version` in `package.json`, commit, and push a tag `talkcut-<version>` (for example `talkcut-1.0.4`). `.github/workflows/release.yml` builds the dmg on a macOS runner and attaches it to a **draft** release. Publish the draft when it looks right: only a published release counts as the latest one that installed copies tell their users about.
+
 ## Windows installer
 
 `npm run dist:win` builds `dist/Talkcut-by-Raghav-Setup-<version>.exe` (64-bit, NSIS) on a Mac.

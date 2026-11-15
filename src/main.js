@@ -15,6 +15,7 @@ const { transcribeCloud, usage: elevenLabsUsage } = require('./cloud');
 const stock = require('./stock');
 const { createKeystore } = require('./keystore');
 const { createProjects, openFields, missingTrackFiles, relinkTracks } = require('./projects');
+const { createUpdates } = require('./updates');
 const Captions = require('./renderer/captions');
 const Edits = require('./renderer/edits');
 const Frame = require('./renderer/frame');
@@ -429,8 +430,24 @@ handle('stock:download', async (_event, item) => {
 });
 
 handle('app:open-external', async (_event, url) => {
-  if (/^https:\/\/(www\.)?(pexels\.com|elevenlabs\.io)\//.test(url)) await shell.openExternal(url);
+  // Pexels and ElevenLabs (key pages), and this project's own releases (the update notice).
+  if (/^https:\/\/((www\.)?(pexels\.com|elevenlabs\.io)|github\.com\/raghavsunil99\/talkcut)\//.test(url)) await shell.openExternal(url);
 });
+
+// ---------- new versions ----------
+
+// Automated checks never reach the real GitHub: they get no notice unless they point the check
+// at a local server with CUTLINE_UPDATE_URL.
+const updates = createUpdates({
+  currentVersion: app.getVersion(),
+  fetch: (...args) => fetch(...args),
+  readSettings: () => readSettings(),
+  writeSettings: (settings) => writeSettings(settings),
+  url: process.env.CUTLINE_UPDATE_URL || undefined,
+});
+const updatesOff = Boolean(process.env.CUTLINE_TEST) && !process.env.CUTLINE_UPDATE_URL;
+handle('app:check-update', () => (updatesOff ? null : updates.check()));
+handle('app:dismiss-update', (_event, version) => updates.dismiss(version));
 
 // Export presets: frame shape and quality. 'edited' keeps the frame chosen in Properties.
 const EXPORT_PRESETS = {

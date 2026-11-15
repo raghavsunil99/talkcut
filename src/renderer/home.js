@@ -25,6 +25,12 @@
       $('home-new').addEventListener('click', () => this.onNew());
       $('home-open').addEventListener('click', () => this.onOpenDialog());
       $('home-back').addEventListener('click', () => this.onBack());
+      $('update-get').addEventListener('click', () => { if (this.update) cutline.openExternal(this.update.url); });
+      $('update-later').addEventListener('click', () => {
+        if (this.update) cutline.dismissUpdate?.(this.update.version);
+        this.update = null;
+        $('update-notice').hidden = true;
+      });
       $('home-folder').addEventListener('click', async (e) => {
         e.preventDefault();
         const dir = await cutline.projectsDir();
@@ -40,6 +46,20 @@
       this.el.hidden = false;
       $('home-back').hidden = !canGoBack;
       await this.render();
+      this.checkForUpdate();
+    }
+
+    // Once per launch: tell the user when a newer Talkcut has been released. Silent when there
+    // is none, when offline, and in versions that cannot check (the phone app).
+    checkForUpdate() {
+      if (this.updateChecked || !cutline.checkUpdate) return;
+      this.updateChecked = true;
+      cutline.checkUpdate().then((update) => {
+        if (!update) return;
+        this.update = update;
+        $('update-text').textContent = `Talkcut ${update.version} is available (you have ${update.current}). Download it and drag it over this one in Applications; your projects stay as they are.`;
+        $('update-notice').hidden = false;
+      }).catch(() => {});
     }
 
     hide() {

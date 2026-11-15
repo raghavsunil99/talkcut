@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('cutline', {
   downloadStock: (item) => ipcRenderer.invoke('stock:download', item),
   onStockProgress: (cb) => subscribe('stock:progress', cb),
   openExternal: (url) => ipcRenderer.invoke('app:open-external', url),
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'),
+  dismissUpdate: (version) => ipcRenderer.invoke('app:dismiss-update', version),
   saveProject: (project, filePath, saveAs = false, quiet = false) => ipcRenderer.invoke('project:save', { project, filePath, saveAs, quiet }),
   openProject: (filePath) => ipcRenderer.invoke('project:open', { filePath }),
   createProject: (project, name) => ipcRenderer.invoke('project:create', { project, name }),
