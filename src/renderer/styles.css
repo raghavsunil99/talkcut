@@ -912,3 +912,7 @@ body.cropping .overlay-layers, body.cropping .caption-layer, body.cropping .canv
 body.guides-shorts .guides .safe-top { height: 9%; }
 body.guides-shorts .guides .safe-bottom { height: 19%; }
 body.guides-shorts .guides .safe-right { top: 34%; bottom: 19%; width: 17%; }
+.caption-line .cw-fill { position: absolute; left: 0; top: 0; white-space: pre; pointer-events: none; }
+/* An inline word's box is its font's content area; line-height normal gives the copy the same
+   box, so its letters sit exactly on the word's. */
+.caption-line .cw-fill { line-height: normal; }

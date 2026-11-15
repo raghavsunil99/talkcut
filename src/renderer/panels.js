@@ -43,11 +43,17 @@
       span.textContent = C.displayText(w.text, p);
       if (p.animation === 'karaoke') {
         const f = Math.round(Math.min(1, Math.max(0, fill?.(w.i) ?? 0)) * 1000) / 10;
-        // Filled part in the highlight colour, the rest in the text colour; the outline stays.
-        span.style.backgroundImage = `linear-gradient(90deg, ${p.hi} ${f}%, ${p.text} ${f}%)`;
-        span.style.webkitBackgroundClip = 'text';
-        span.style.backgroundClip = 'text';
-        span.style.color = 'transparent';
+        // A copy of the word in the highlight colour lies exactly on top of it, cut off at the
+        // filled share. Each copy keeps its own outline under an opaque fill, as libass draws it.
+        if (f > 0) {
+          const over = document.createElement('span');
+          over.className = 'cw-fill';
+          over.textContent = span.textContent;
+          over.style.color = p.hi;
+          over.style.clipPath = `inset(-0.5em ${(100 - f).toFixed(1)}% -0.5em -0.5em)`;
+          span.style.position = 'relative';
+          span.appendChild(over);
+        }
       } else if (p.mode === 'highlight' && w.i === current) span.style.color = p.hi;
       el.appendChild(span);
     });
@@ -146,7 +152,14 @@
       seg('cap-case', { asis: 'As spoken', upper: 'UPPER' }, (v) => this.setStyle({ upper: v === 'upper' }));
       seg('cap-outline-w', { none: 'None', thin: 'Thin', medium: 'Medium', thick: 'Thick' }, (v) => this.setStyle({ outlineW: C.OUTLINES[v] }));
       seg('cap-lines', { 1: 'One line', 2: 'Two lines' }, (v) => this.setStyle({ lines: Number(v) }));
-      seg('cap-animation', C.ANIMATIONS, (v) => this.setStyle({ animation: v }));
+      seg('cap-animation', C.ANIMATIONS, (v) => {
+        // Karaoke shows nothing when the highlight is the text colour (Subtitle, One word):
+        // pick a highlight that stands out.
+        const p = C.styleOf(this.captions);
+        const change = { animation: v };
+        if (v === 'karaoke' && p.hi.toUpperCase() === p.text.toUpperCase()) change.hi = p.text.toUpperCase() === '#FFD84D' ? '#FFFFFF' : '#FFD84D';
+        this.setStyle(change);
+      });
       for (const [id, key] of [['cap-text', 'text'], ['cap-hi', 'hi'], ['cap-outline', 'outline']]) {
         $(id).addEventListener('input', (e) => this.setStyle({ [key]: e.target.value }, false));
         $(id).addEventListener('change', (e) => this.setStyle({ [key]: e.target.value }));

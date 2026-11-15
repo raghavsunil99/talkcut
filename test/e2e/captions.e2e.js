@@ -38,6 +38,11 @@ function measure(raw, colours) {
 const CASES = [
   { name: 'outline', style: { text: '#00FF66', outline: '#FF00FF', outlineW: 0.09, weight: 800 }, colours: { fill: [0, 255, 102], outline: [255, 0, 255] } },
   { name: 'box', style: { text: '#FFEE00', box: '#2040C0', weight: 400 }, colours: { fill: [255, 238, 0], box: [26, 47, 140] } },
+  // Karaoke, fully filled: the highlight colour fills the letters and the outline stays round them.
+  // libass blends a karaoke fill into the outline differently at the letter edges, so fewer edge
+  // pixels count as pure outline colour (the outline geometry is the same as in the case above:
+  // 1168 px there against 935 here, from the same font and thickness); the fill is compared tightly.
+  { name: 'karaoke', style: { text: '#FFFFFF', hi: '#00FF66', outline: '#FF00FF', outlineW: 0.09, weight: 800, animation: 'karaoke' }, colours: { fill: [0, 255, 102], outline: [255, 0, 255] }, filled: true, loose: { outline: 0.4 } },
 ];
 
 test('a custom style looks the same in the preview and the export (golden frame)', TIMEOUT, async () => {
@@ -55,13 +60,14 @@ test('a custom style looks the same in the preview and the export (golden frame)
       const ass = C.buildAss({ words, deleted: new Set(), settings, language: 'en', width: W, height: HGT, toEdited: (t) => t });
       const assPath = path.join(dir, `${c.name}.ass`);
       // No shadow, so only the style's own colours are drawn.
+      // (Karaoke is drawn after its last word has filled.)
       fs.writeFileSync(assPath, ass.replace(/Dialogue: 0,[^,]+,[^,]+,/g, 'Dialogue: 0,0:00:00.00,0:00:05.00,').replace(/^(Style: Cap(?:,[^,]*){16}),[^,]*,/m, '$1,0,'));
       // Drawn on an RGB frame: a YUV one would blur the colours at the letter edges.
       const exported = path.join(dir, `${c.name}-export.png`);
-      execFileSync(ffmpeg, ['-hide_banner', '-y', '-f', 'lavfi', '-i', `color=c=black:s=${W}x${HGT}:d=1`, '-vf', `format=rgb24,ass=filename=${assPath}:fontsdir=${fonts}`, '-frames:v', '1', exported], { stdio: 'ignore' });
+      execFileSync(ffmpeg, ['-hide_banner', '-y', '-f', 'lavfi', '-i', `color=c=black:s=${W}x${HGT}:d=5:r=10`, '-ss', '4', '-vf', `format=rgb24,ass=filename=${assPath}:fontsdir=${fonts}`, '-frames:v', '1', exported], { stdio: 'ignore' });
 
       // The preview: the app's own caption styling, on a black frame of the same size.
-      const box = await page.evaluate(async ([s, px]) => {
+      const box = await page.evaluate(async ([s, px, filled]) => {
         await document.fonts.load('400 30px "Noto Sans"', 'a');
         await document.fonts.load('700 30px "Noto Sans"', 'a');
         document.getElementById('golden')?.remove();
@@ -74,10 +80,10 @@ test('a custom style looks the same in the preview and the export (golden frame)
         stage.appendChild(line);
         const style = { ...window.CutlineCaptions.styleOf(s), shadow: 0 };
         window.CutlinePanels.styleLine(line, style, px, 'en');
-        window.CutlinePanels.fillLine(line, 'Talkcut captions match'.split(' ').map((w, i) => ({ text: w, i })), style, -1);
+        window.CutlinePanels.fillLine(line, 'Talkcut captions match'.split(' ').map((w, i) => ({ text: w, i })), style, -1, filled ? () => 1 : null);
         const r = stage.getBoundingClientRect();
         return { x: r.x, y: r.y, width: r.width, height: r.height };
-      }, [settings, C.fontPx(C.settingsOf(settings), W, HGT)]);
+      }, [settings, C.fontPx(C.settingsOf(settings), W, HGT), Boolean(c.filled)]);
       const shot = path.join(dir, `${c.name}-preview.png`);
       await page.screenshot({ path: shot, clip: box });
       await page.evaluate(() => document.getElementById('golden').remove());
@@ -87,7 +93,7 @@ test('a custom style looks the same in the preview and the export (golden frame)
       assert.ok(Math.abs(a.width - b.width) / a.width < 0.04, `${c.name}: export ${a.width} px wide, preview ${b.width} px`);
       for (const k of Object.keys(c.colours)) {
         assert.ok(a[k] > 100 && b[k] > 100, `${c.name}: ${k} colour drawn in both (${a[k]}, ${b[k]})`);
-        assert.ok(Math.abs(a[k] - b[k]) / a[k] < 0.2, `${c.name}: ${k} area export ${a[k]} px, preview ${b[k]} px`);
+        assert.ok(Math.abs(a[k] - b[k]) / a[k] < (c.loose?.[k] ?? 0.2), `${c.name}: ${k} area export ${a[k]} px, preview ${b[k]} px`);
       }
     }
   } finally {
