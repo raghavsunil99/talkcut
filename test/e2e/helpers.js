@@ -15,12 +15,15 @@ function tempDir() {
 }
 
 // A 7-second test-pattern video. `tone` gives it a sine-wave voice; without it the sound track
-// is silent, which the transcriber reports as "no speech".
-function makeVideo(dir, { name = 'clip.mp4', tone = true, seconds = 7 } = {}) {
+// is silent, which the transcriber reports as "no speech". A steady tone also counts as no
+// speech (it is all at the noise floor); `tone: 'pulsed'` switches it on and off like speech.
+function makeVideo(dir, { name = 'clip.mp4', tone = true, seconds = 7, size = '320x240' } = {}) {
   const out = path.join(dir, name);
-  const audio = tone ? 'sine=frequency=300:sample_rate=48000' : 'anullsrc=r=48000:cl=mono';
+  const audio = tone === 'pulsed'
+    ? 'aevalsrc=if(lt(mod(t\\,1)\\,0.6)\\,0.5*sin(2*PI*300*t)\\,0):s=48000'
+    : tone ? 'sine=frequency=300:sample_rate=48000' : 'anullsrc=r=48000:cl=mono';
   execFileSync(ffmpeg, [
-    '-hide_banner', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30', '-f', 'lavfi', '-i', audio,
+    '-hide_banner', '-y', '-f', 'lavfi', '-i', `testsrc=size=${size}:rate=30`, '-f', 'lavfi', '-i', audio,
     '-t', String(seconds), '-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest', out,
   ], { stdio: 'ignore' });
   return out;

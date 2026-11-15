@@ -208,13 +208,34 @@ handle('media:timeline', async (_event, { filePath, duration, hasVideo }) => {
   return { ...waveform, frames };
 });
 
-handle('media:transcribe', async (_event, { filePath, language, quality }) => {
+// The export or transcription running now, so the page can cancel it (one at a time).
+let currentJob = null;
+function startJob() {
+  currentJob?.abort();
+  currentJob = new AbortController();
+  return currentJob;
+}
+function endJob(job) {
+  if (currentJob === job) currentJob = null;
+}
+handle('job:cancel', () => { currentJob?.abort(); });
+
+handle('media:transcribe', async (_event, args) => {
+  const job = startJob();
+  try {
+    return await transcribeJob(args, job.signal);
+  } finally {
+    endJob(job);
+  }
+});
+
+async function transcribeJob({ filePath, language, quality }, signal) {
   if (quality === 'cloud') {
     const key = await elevenLabsKey();
     if (!key) throw new Error('No enabled ElevenLabs key. Add or enable one in API keys (⇧⌘K).');
     if (!Object.hasOwn(LANGUAGES, language)) throw new Error(`Unsupported language: ${language}`);
     try {
-      return await transcribeCloud(filePath, { key, language, onProgress: (p) => send('transcribe:progress', p) });
+      return await transcribeCloud(filePath, { key, language, signal, onProgress: (p) => send('transcribe:progress', p) });
     } catch (err) {
       if (err.code !== 'QUOTA') throw err;
       // Tell the page which key ran out and which enabled key could take over; the page asks
@@ -227,9 +248,10 @@ handle('media:transcribe', async (_event, { filePath, language, quality }) => {
     language,
     quality,
     modelDir: modelDir(),
+    signal,
     onProgress: (p) => send('transcribe:progress', p),
   });
-});
+}
 
 // ---------- settings (Pexels key, encrypted with the macOS keychain) ----------
 
@@ -492,25 +514,35 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
       await requireFile(a.path);
       sounds.push({ path: a.path, start: a.start, end: a.end, offset: a.offset ?? 0, volume: a.volume ?? 1, duck: a.duck !== false });
     }
-    await renderEdit({
-      input: media.path,
-      output: filePath,
-      ranges,
-      hasVideo: withPicture,
-      hasAudio: media.hasAudio,
-      duration: media.duration,
-      width: info.width,
-      height: info.height,
-      fps: info.fps,
-      overlays: checked,
-      audio: media.hasAudio ? sounds : [],
-      assPath,
-      textAssPath,
-      fontsDir,
-      clip,
-      crf,
-      onProgress: (progress) => send('export:progress', { progress }),
-    });
+    const job = startJob();
+    try {
+      await renderEdit({
+        signal: job.signal,
+        input: media.path,
+        output: filePath,
+        ranges,
+        hasVideo: withPicture,
+        hasAudio: media.hasAudio,
+        duration: media.duration,
+        width: info.width,
+        height: info.height,
+        fps: info.fps,
+        overlays: checked,
+        audio: media.hasAudio ? sounds : [],
+        assPath,
+        textAssPath,
+        fontsDir,
+        clip,
+        crf,
+        onProgress: (progress) => send('export:progress', { progress }),
+      });
+    } catch (err) {
+      // A cancelled or failed export leaves no half-written file behind.
+      await fs.rm(filePath, { force: true });
+      throw err;
+    } finally {
+      endJob(job);
+    }
     // Captions as a separate file next to the video, for YouTube and other uploads.
     if (subtitles?.content && /^(srt|vtt)$/.test(subtitles.format)) {
       await fs.writeFile(filePath.replace(/\.[^./]+$/, `.${subtitles.format}`), subtitles.content);

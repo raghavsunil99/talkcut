@@ -53,5 +53,6 @@ contextBridge.exposeInMainWorld('cutline', {
   cancelClose: () => ipcRenderer.invoke('app:cancel-close'),
   onTranscribeProgress: (cb) => subscribe('transcribe:progress', cb),
   onExportProgress: (cb) => subscribe('export:progress', cb),
+  cancelJob: () => ipcRenderer.invoke('job:cancel'),
   onMenuCommand: (cb) => subscribe('menu:command', cb),
 });

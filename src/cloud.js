@@ -4,7 +4,7 @@
 const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const { encodeForUpload } = require('./media');
+const { encodeForUpload, cancelledError } = require('./media');
 
 const ENDPOINT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MODEL = 'scribe_v2';
@@ -37,8 +37,14 @@ function quotaError(message) {
   return err;
 }
 
-async function request(key, form) {
-  const res = await fetch(ENDPOINT, { method: 'POST', headers: { 'xi-api-key': key }, body: form });
+async function request(key, form, signal) {
+  let res;
+  try {
+    res = await fetch(ENDPOINT, { method: 'POST', headers: { 'xi-api-key': key }, body: form, signal });
+  } catch (err) {
+    if (signal?.aborted) throw cancelledError();
+    throw new Error(`Could not reach ElevenLabs: ${err.message}. Check your connection and try again.`);
+  }
   if (!res.ok) {
     let detail = {};
     try { detail = (await res.clone().json()).detail ?? {}; } catch {}
@@ -54,15 +60,20 @@ async function request(key, form) {
     try { detail = JSON.stringify((await res.json()).detail ?? '').slice(0, 300); } catch {}
     throw new Error(`Cloud transcription failed (HTTP ${res.status}) ${detail}`);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch (err) {
+    if (signal?.aborted) throw cancelledError();
+    throw err;
+  }
 }
 
-async function transcribeCloud(filePath, { key, language = 'auto', onProgress }) {
+async function transcribeCloud(filePath, { key, language = 'auto', onProgress, signal }) {
   const work = await fsp.mkdtemp(path.join(os.tmpdir(), 'cutline-cloud-'));
   try {
     onProgress?.({ stage: 'decode', progress: 0 });
     const audio = path.join(work, 'audio.m4a');
-    await encodeForUpload(filePath, audio);
+    await encodeForUpload(filePath, audio, { signal });
     const form = new FormData();
     form.append('model_id', MODEL);
     form.append('timestamps_granularity', 'word');
@@ -71,7 +82,7 @@ async function transcribeCloud(filePath, { key, language = 'auto', onProgress })
     if (language && language !== 'auto') form.append('language_code', language);
     form.append('file', new Blob([await fsp.readFile(audio)], { type: 'audio/mp4' }), 'audio.m4a');
     onProgress?.({ stage: 'upload', progress: null });
-    const { words, language: detected } = toWords(await request(key, form));
+    const { words, language: detected } = toWords(await request(key, form, signal));
     return { words, language: language !== 'auto' ? language : detected ?? 'en' };
   } finally {
     await fsp.rm(work, { recursive: true, force: true });

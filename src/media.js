@@ -12,9 +12,28 @@ const ffmpegPath = bundledFfmpeg && fs.existsSync(bundledFfmpeg)
   ? bundledFfmpeg
   : require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
 
-function runFfmpeg(args, { onStderr, collectStdout = false } = {}) {
+// The error a cancelled job ends with; the page shows "cancelled" rather than a failure.
+function cancelledError() {
+  const err = new Error('CANCELLED');
+  err.code = 'CANCELLED';
+  return err;
+}
+
+// What the user can do about the common ffmpeg failures, or null for anything else.
+function friendlyFfmpegError(stderr) {
+  const text = String(stderr ?? '');
+  if (/No space left on device/i.test(text)) return 'The disk is full. Free some space and try again.';
+  if (/Permission denied|Operation not permitted/i.test(text)) return 'Talkcut is not allowed to read or write that file. Check the folder’s permissions, or choose another folder.';
+  if (/moov atom not found|Invalid data found when processing input/i.test(text)) return 'This file can’t be read. It may be damaged, or still being copied.';
+  return null;
+}
+
+function runFfmpeg(args, { onStderr, collectStdout = false, signal } = {}) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(cancelledError()); return; }
     const proc = spawn(ffmpegPath, args, { stdio: ['ignore', collectStdout ? 'pipe' : 'ignore', 'pipe'] });
+    const kill = () => proc.kill('SIGKILL');
+    signal?.addEventListener('abort', kill, { once: true });
     const chunks = [];
     let stderr = '';
     proc.stdout?.on('data', (c) => chunks.push(c));
@@ -26,8 +45,10 @@ function runFfmpeg(args, { onStderr, collectStdout = false } = {}) {
     });
     proc.on('error', reject);
     proc.on('close', (code) => {
+      signal?.removeEventListener('abort', kill);
+      if (signal?.aborted) return reject(cancelledError());
       if (code === 0) return resolve({ stderr, stdout: Buffer.concat(chunks) });
-      const err = new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-800)}`);
+      const err = new Error(friendlyFfmpegError(stderr) ?? `ffmpeg exited with code ${code}: ${stderr.slice(-800)}`);
       err.stderr = stderr;
       reject(err);
     });
@@ -79,13 +100,13 @@ async function probe(filePath) {
 }
 
 // whisper.cpp expects 16 kHz mono 16-bit WAV.
-async function decodeToWav(filePath, wavPath) {
-  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wavPath]);
+async function decodeToWav(filePath, wavPath, { signal } = {}) {
+  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wavPath], { signal });
 }
 
 // Small mono AAC file for uploading to a cloud speech service.
-async function encodeForUpload(filePath, outPath) {
-  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', '48k', outPath]);
+async function encodeForUpload(filePath, outPath, { signal } = {}) {
+  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', '48k', outPath], { signal });
 }
 
 // Pauses as [start, end] seconds, plus total duration.
@@ -108,8 +129,8 @@ async function findSilences(filePath, { noise = '-32dB', minSeconds = 0.35 } = {
   return { silences, duration };
 }
 
-async function extractClip(wavPath, outPath, start, end) {
-  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-ss', start.toFixed(3), '-to', end.toFixed(3), '-i', wavPath, '-c', 'copy', outPath]);
+async function extractClip(wavPath, outPath, start, end, { signal } = {}) {
+  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-ss', start.toFixed(3), '-to', end.toFixed(3), '-i', wavPath, '-c', 'copy', outPath], { signal });
 }
 
 // Waveform envelope: peak absolute amplitude (0..1) per 1/perSecond seconds.
@@ -193,9 +214,10 @@ function filterPath(p) {
 }
 
 // Render an edit (see renderer/render-plan.js for what goes into it).
-async function renderEdit({ onProgress, ...options }) {
+async function renderEdit({ onProgress, signal, ...options }) {
   const { args, total } = buildRenderArgs({ ...options, filterPath });
   await runFfmpeg(args, {
+    signal,
     onStderr: (text) => {
       const m = text.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
       if (m) onProgress?.(Math.min(1, (Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3])) / total));
@@ -253,5 +275,5 @@ async function thumbnail(filePath, at = 0.5, height = 120) {
 
 module.exports = {
   probe, decodeToWav, encodeForUpload, enhanceAudio, STUDIO_SOUND, findSilences, extractClip, computePeaks, extractFrames, findFaces, thumbnail,
-  prepareFontsDir, pixelAt, renderEdit,
+  prepareFontsDir, pixelAt, renderEdit, runFfmpeg, cancelledError, friendlyFfmpegError,
 };

@@ -10,7 +10,7 @@ const fsp = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { decodeToWav, extractClip } = require('./media');
+const { decodeToWav, extractClip, cancelledError } = require('./media');
 
 const MODEL_BASE_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/';
 const MODELS = {
@@ -87,8 +87,11 @@ function whisperCliPath() {
   return found;
 }
 
-async function ensureModel(modelDir, key, onProgress) {
-  const { file, bytes, label } = MODELS[key];
+// Download a speech model once. A download that was cancelled or cut off keeps what it got
+// (the .part file) and the next attempt continues from there.
+// `baseUrl` and `models` are for tests.
+async function ensureModel(modelDir, key, onProgress, { signal, baseUrl = MODEL_BASE_URL, models = MODELS } = {}) {
+  const { file, bytes, label } = models[key];
   const dir = path.join(modelDir, 'ggml');
   const target = path.join(dir, file);
   const existing = await fsp.stat(target).catch(() => null);
@@ -96,22 +99,34 @@ async function ensureModel(modelDir, key, onProgress) {
 
   await fsp.mkdir(dir, { recursive: true });
   const partial = `${target}.part`;
-  const res = await fetch(MODEL_BASE_URL + file);
-  if (!res.ok || !res.body) throw new Error(`Could not download the speech model (HTTP ${res.status}).`);
-  const total = Number(res.headers.get('content-length')) || bytes;
-  const out = fs.createWriteStream(partial);
-  let loaded = 0;
-  try {
-    for await (const chunk of res.body) {
-      loaded += chunk.length;
-      if (!out.write(chunk)) await new Promise((r) => out.once('drain', r));
-      onProgress?.({ stage: 'model', progress: loaded / total, model: label, megabytes: Math.round(bytes / 1e6) });
+  let have = (await fsp.stat(partial).catch(() => null))?.size ?? 0;
+  if (have > bytes) { await fsp.rm(partial, { force: true }); have = 0; }
+  if (have < bytes) {
+    let res;
+    try {
+      res = await fetch(baseUrl + file, { signal, headers: have ? { Range: `bytes=${have}-` } : {} });
+    } catch (err) {
+      if (signal?.aborted) throw cancelledError();
+      throw new Error(`Could not download the speech model: ${err.message}. Check your connection and try again.`);
     }
-    await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())));
-  } catch (err) {
-    out.destroy();
-    await fsp.rm(partial, { force: true });
-    throw err;
+    // A server that ignores the range sends the whole file again: start over.
+    if (have && res.status !== 206) have = 0;
+    if (!res.ok || !res.body) throw new Error(`Could not download the speech model (HTTP ${res.status}).`);
+    const out = fs.createWriteStream(partial, { flags: have ? 'a' : 'w' });
+    let loaded = have;
+    try {
+      for await (const chunk of res.body) {
+        loaded += chunk.length;
+        if (!out.write(chunk)) await new Promise((r) => out.once('drain', r));
+        onProgress?.({ stage: 'model', progress: loaded / bytes, model: label, megabytes: Math.round(bytes / 1e6) });
+      }
+      await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())));
+    } catch (err) {
+      // Keep what arrived, so the next attempt resumes.
+      await new Promise((r) => out.end(r));
+      if (signal?.aborted) throw cancelledError();
+      throw new Error(`The speech model download stopped: ${err.message}. Try again to continue it.`);
+    }
   }
   if ((await fsp.stat(partial)).size !== bytes) {
     await fsp.rm(partial, { force: true });
@@ -126,9 +141,12 @@ async function modelReady(modelDir, key) {
   return stat?.size === MODELS[key].bytes;
 }
 
-function runWhisper(args, { onLine } = {}) {
+function runWhisper(args, { onLine, signal } = {}) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(cancelledError()); return; }
     const proc = spawn(whisperCliPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const kill = () => proc.kill('SIGKILL');
+    signal?.addEventListener('abort', kill, { once: true });
     let tail = '';
     let buffer = '';
     const onData = (c) => {
@@ -143,8 +161,10 @@ function runWhisper(args, { onLine } = {}) {
     proc.stderr.on('data', onData);
     proc.on('error', reject);
     proc.on('close', (code) => {
+      signal?.removeEventListener('abort', kill);
       if (buffer) onLine?.(buffer);
-      if (code === 0) resolve(tail);
+      if (signal?.aborted) reject(cancelledError());
+      else if (code === 0) resolve(tail);
       else reject(new Error(`Transcription failed (whisper.cpp exit code ${code}): ${tail.slice(-600)}`));
     });
   });
@@ -288,13 +308,14 @@ function uncovered(regions, words, minGap = 1.2) {
 
 // Vote over a spread of clips. English-only clips are common inside code-mixed speech,
 // so any other language that shows up in a fair share of clips wins.
-async function detectLanguage(clipFiles, modelPath) {
+async function detectLanguage(clipFiles, modelPath, signal) {
   const step = Math.max(1, Math.floor(clipFiles.length / 8));
   const sample = clipFiles.filter((_, i) => i % step === 0).slice(0, 8);
   const votes = {};
   await runWhisper(
     ['-m', modelPath, '-l', 'auto', '-dl', '-t', threads(), ...sample.flatMap((f) => ['-f', f])],
     {
+      signal,
       onLine: (line) => {
         const m = line.match(/auto-detected language: (\w+) \(p = ([\d.]+)\)/);
         if (m) votes[m[1]] = (votes[m[1]] ?? 0) + Number(m[2]);
@@ -349,11 +370,11 @@ function finalizeWords(words) {
 
 // Transcribe a list of [start, end] clips of the WAV in one whisper.cpp run (the model loads
 // once) and return their words on the original timeline.
-async function transcribeClips(wav, clips, work, tag, { modelPath, quality, lang, prompt, onClipDone }) {
+async function transcribeClips(wav, clips, work, tag, { modelPath, quality, lang, prompt, onClipDone, signal }) {
   const files = [];
   for (let i = 0; i < clips.length; i++) {
     const f = path.join(work, `${tag}${String(i).padStart(4, '0')}.wav`);
-    await extractClip(wav, f, clips[i][0], clips[i][1]);
+    await extractClip(wav, f, clips[i][0], clips[i][1], { signal });
     files.push(f);
   }
   if (!files.length) return [];
@@ -368,7 +389,7 @@ async function transcribeClips(wav, clips, work, tag, { modelPath, quality, lang
       '-ojf', '-np',
       ...files.flatMap((f) => ['-f', f]),
     ],
-    { onLine: (line) => { if (/output_json: saving output/.test(line)) onClipDone?.(); } },
+    { signal, onLine: (line) => { if (/output_json: saving output/.test(line)) onClipDone?.(); } },
   );
   const words = [];
   for (let i = 0; i < files.length; i++) {
@@ -381,7 +402,7 @@ async function transcribeClips(wav, clips, work, tag, { modelPath, quality, lang
 }
 
 // Returns { words: [{ text, start, end }], language } with times in seconds.
-async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fast', stylePrompt, onProgress } = {}) {
+async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fast', stylePrompt, onProgress, signal } = {}) {
   if (!Object.hasOwn(LANGUAGES, language)) throw new Error(`Unsupported language: ${language}`);
   if (!Object.hasOwn(MODELS, quality)) throw new Error(`Unsupported quality: ${quality}`);
 
@@ -389,7 +410,7 @@ async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fa
   try {
     onProgress?.({ stage: 'decode', progress: 0 });
     const wav = path.join(work, 'audio.wav');
-    await decodeToWav(filePath, wav);
+    await decodeToWav(filePath, wav, { signal });
     const rms = await readEnergy(wav);
     const duration = rms.length * FRAME;
     const clips = planClips(rms, duration);
@@ -397,24 +418,24 @@ async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fa
 
     let lang = language;
     if (lang === 'auto') {
-      const detectModel = await ensureModel(modelDir, DETECT_MODEL, onProgress);
+      const detectModel = await ensureModel(modelDir, DETECT_MODEL, onProgress, { signal });
       onProgress?.({ stage: 'detect', progress: 0 });
       const sampleFiles = [];
       const step = Math.max(1, Math.floor(clips.length / 8));
       for (let i = 0; i < clips.length && sampleFiles.length < 8; i += step) {
         const f = path.join(work, `detect${i}.wav`);
-        await extractClip(wav, f, clips[i][0], clips[i][1]);
+        await extractClip(wav, f, clips[i][0], clips[i][1], { signal });
         sampleFiles.push(f);
       }
-      lang = await detectLanguage(sampleFiles, detectModel);
+      lang = await detectLanguage(sampleFiles, detectModel, signal);
     }
 
-    const modelPath = await ensureModel(modelDir, quality, onProgress);
+    const modelPath = await ensureModel(modelDir, quality, onProgress, { signal });
     const prompt = stylePrompt === undefined ? STYLE_PROMPTS[lang] : stylePrompt || null;
     onProgress?.({ stage: 'transcribe', progress: 0, language: lang });
     let done = 0;
     const words = await transcribeClips(wav, clips, work, 'clip', {
-      modelPath, quality, lang, prompt,
+      modelPath, quality, lang, prompt, signal,
       onClipDone: () => onProgress?.({ stage: 'transcribe', progress: (++done / clips.length) * 0.9, language: lang }),
     });
 
@@ -431,14 +452,14 @@ async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fa
       const holes = uncovered(regions, words);
       if (!holes.length) return;
       const padded = holes.map(([a, b]) => [Math.max(0, a - 0.3), Math.min(duration, b + 0.3)]);
-      const extra = await transcribeClips(wav, padded, work, tag, { modelPath: path_, quality: q, lang, prompt: null });
+      const extra = await transcribeClips(wav, padded, work, tag, { modelPath: path_, quality: q, lang, prompt: null, signal });
       for (const w of extra) {
         if (holes.some(([a, b]) => w.start >= a - 0.05 && w.start < b)) words.push(w);
       }
     };
     await fillHoles(modelPath, quality, 'hole');
     if (quality !== 'accurate' && uncovered(regions, words).length && (await modelReady(modelDir, 'accurate'))) {
-      await fillHoles(await ensureModel(modelDir, 'accurate'), 'accurate', 'hole2');
+      await fillHoles(await ensureModel(modelDir, 'accurate', null, { signal }), 'accurate', 'hole2');
     }
     onProgress?.({ stage: 'transcribe', progress: 1, language: lang });
     return { words: trimToSound(finalizeWords(dropPromptEcho(words, prompt)), rms), language: lang };
@@ -450,4 +471,4 @@ async function transcribe(filePath, { modelDir, language = 'auto', quality = 'fa
 // Offered next to the local models; handled by cloud.js, not whisper.cpp.
 const CLOUD_QUALITY = { cloud: { label: 'Cloud · ElevenLabs (best)' } };
 
-module.exports = { CLOUD_QUALITY, transcribe, dropPromptEcho, parseWords, finalizeWords, trimToSound, planClips, speechRegions, uncovered, readEnergy, LANGUAGES, MODELS, STYLE_PROMPTS };
+module.exports = { CLOUD_QUALITY, transcribe, ensureModel, dropPromptEcho, parseWords, finalizeWords, trimToSound, planClips, speechRegions, uncovered, readEnergy, LANGUAGES, MODELS, STYLE_PROMPTS };
