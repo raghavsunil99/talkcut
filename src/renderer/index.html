@@ -79,7 +79,7 @@
           <div id="pic" class="pic"><div id="pic-inner" class="pic-inner"><video id="video" preload="auto" playsinline></video></div></div>
           <div id="overlay-layers" class="overlay-layers"></div>
           <div id="caption-layer" class="caption-layer" hidden></div>
-          <div class="guides" aria-hidden="true"><i class="safe-top"></i><i class="safe-bottom"></i><i class="safe-right"></i></div>
+          <div class="guides" aria-hidden="true"><i class="safe-top"></i><i class="safe-bottom"></i><i class="safe-right"></i><b class="guides-label"></b></div>
           <div class="grid-lines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </div>
         <div id="audio-art" class="audio-art" hidden>
@@ -115,6 +115,33 @@
           </div>
           <div class="field-label">Style</div>
           <div class="preset-list" id="cap-presets"></div>
+          <div class="field-label" id="cap-saved-head" hidden>Saved styles</div>
+          <div class="preset-list" id="cap-saved"></div>
+          <details class="cap-custom" id="cap-custom">
+            <summary>Customize <span class="panel-hint" id="cap-style-name"></span></summary>
+            <div class="field"><div class="field-label">Colours</div>
+              <div class="cap-colours">
+                <label>Text <input type="color" id="cap-text"></label>
+                <label>Highlight <input type="color" id="cap-hi"></label>
+                <label>Outline <input type="color" id="cap-outline"></label>
+                <label><input type="checkbox" id="cap-box-on"> Box <input type="color" id="cap-box" value="#0c0c10"></label>
+              </div>
+            </div>
+            <div class="field"><div class="field-label">Outline</div><div class="segmented" id="cap-outline-w"></div></div>
+            <div class="field"><div class="field-label">Weight</div><div class="segmented" id="cap-weight"></div></div>
+            <div class="field"><div class="field-label">Case</div><div class="segmented" id="cap-case"></div></div>
+            <div class="field"><div class="field-label">Words per line <span id="cap-words-out" class="set-out"></span></div><input type="range" id="cap-words" min="1" max="10" step="1"></div>
+            <div class="field"><div class="field-label">Lines</div><div class="segmented" id="cap-lines"></div></div>
+            <div class="field"><div class="field-label">Animation</div><div class="segmented wrap" id="cap-animation"></div></div>
+            <p class="panel-hint">Fonts are the bundled Noto Sans family for each language, so the export matches the preview exactly.</p>
+            <div class="cap-style-actions">
+              <input type="text" class="text-input" id="cap-save-name" placeholder="Name to save as" maxlength="40">
+              <button type="button" class="btn" id="cap-save-style">Save</button>
+            </div>
+            <div class="cap-style-actions">
+              <button type="button" class="btn ghost" id="cap-reset-style">Back to preset</button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -490,7 +517,8 @@
       <section class="set-group">
         <h3>Preview</h3>
         <div class="set-checks">
-          <label class="prop-check"><input type="checkbox" id="set-guides"> Reels safe zones (where Instagram's buttons and caption sit)</label>
+          <label class="prop-check"><input type="checkbox" id="set-guides"> Safe zones (where the app's buttons and caption sit)</label>
+          <div class="set-row"><span>Safe zones for</span><div class="segmented" id="set-guides-for"></div></div>
           <label class="prop-check"><input type="checkbox" id="set-grid"> Rule-of-thirds grid</label>
         </div>
       </section>

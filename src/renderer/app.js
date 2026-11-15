@@ -339,7 +339,9 @@
   });
 
   const panels = new CutlinePanels.Panels({
-    onCaptionsChange: (settings) => {
+    onCaptionsChange: (settings, { final = true } = {}) => {
+      // While a colour is being dragged the preview follows; the change is one undo step at the end.
+      if (!final) { state.committedCaptions ??= state.captions; state.captions = settings; resetCaptionCache(); refresh(); return; }
       if (hasProject()) commit({ captions: settings });
       else { state.captions = settings; refresh(); }
       if (settings.enabled && state.media && !state.media.hasVideo) toast('Captions are burned into video, so they need a video file.');
@@ -362,7 +364,7 @@
     state.cuts = E.computeCuts(state.words, state.deleted, d, state.cutGaps, state.rangeCuts, state.order);
     state.kept = E.keptRanges(state.cuts, d, state.order);
     state.ends = E.isIdentity(state.order, d) ? null : E.pieceEnds(state.words, state.order, d);
-    state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions.preset, state.ends), state.words, state.ends);
+    state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions, state.ends), state.words, state.ends);
     resetCaptionCache();
     const sel = selectionRange();
     if (state.media && !state.loadingMedia && mod.transcript.needsRender()) renderTranscript();
@@ -375,7 +377,7 @@
       timeline.setMarks({ splits: state.splits, rangeSel: state.rangeSel });
       timeline.setTracks(T.placed(state.tracks, state.kept), state.itemSel);
       const capsOn = state.captions.enabled && state.media?.hasVideo;
-      timeline.setCaptions(capsOn ? state.captionSpans.map((sp) => ({ ...sp, text: C.displayText(sp.words.map((i) => state.words[i].text).join(' '), C.PRESETS[state.captions.preset]) })) : [], sel);
+      timeline.setCaptions(capsOn ? state.captionSpans.map((sp) => ({ ...sp, text: C.displayText(sp.words.map((i) => state.words[i].text).join(' '), C.styleOf(state.captions)) })) : [], sel);
     }
 
     const total = editedLength();
@@ -423,7 +425,8 @@
   // ---------- edits ----------
 
   function snapshot() {
-    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
+    return {
+      words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.committedCaptions ?? state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -441,6 +444,7 @@
     if (snap.rangeCuts) state.rangeCuts = snap.rangeCuts;
     if (snap.speakers) state.speakers = snap.speakers;
     if (snap.captions && snap.captions !== state.captions) { state.captions = snap.captions; panels.setCaptions(state.captions); }
+    state.committedCaptions = null;
     if (state.itemSel && !T.find(state.tracks, state.itemSel)) state.itemSel = null;
     state.textVersion++;
   }

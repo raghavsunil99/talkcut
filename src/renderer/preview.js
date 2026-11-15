@@ -217,7 +217,14 @@
         return;
       }
       const s = state.captions;
-      const key = `${active.span.start}:${active.current}:${s.preset}:${s.size}:${s.position}:${s.x}:${s.y}:${s.scale}:${Math.round(r.width)}x${Math.round(r.height)}`;
+      const style = C.styleOf(s);
+      // Animated styles change every frame; the edited time drives them, as in the export.
+      const moving = style.animation !== 'none';
+      const e = moving ? E.toEdited(state.kept, t) : 0;
+      const spanStart = moving ? E.toEdited(state.kept, active.span.start) : 0;
+      const spanEnd = moving ? E.toEdited(state.kept, active.span.end, true) : 0;
+      const scale = C.lineScale(style, e - spanStart, spanEnd - spanStart);
+      const key = `${active.span.start}:${active.current}:${JSON.stringify(s.style ?? null)}:${s.preset}:${s.size}:${s.position}:${s.x}:${s.y}:${s.scale}:${Math.round(r.width)}x${Math.round(r.height)}:${moving ? Math.round(e * 50) : ''}`;
       if (key === lastCaptionKey) return;
       lastCaptionKey = key;
       place(layer, r);
@@ -233,11 +240,21 @@
         layer.appendChild(line);
       }
       // Dragged captions sit with their centre on (x, y).
+      // Pop and grow scale the line around the point libass anchors it at (\\an).
+      const zoom = scale !== 1 ? ` scale(${scale.toFixed(4)})` : '';
       Object.assign(line.style, custom
-        ? { position: 'absolute', left: `${s.x * r.width}px`, top: `${s.y * r.height}px`, transform: 'translate(-50%, -50%)', width: 'max-content' }
-        : { position: '', left: '', top: '', transform: '', width: '' });
-      CutlinePanels.styleLine(line, s.preset, fontPx, state.language);
-      CutlinePanels.fillLine(line, active.span.words.map((i) => ({ text: state.words[i].text, i })), s.preset, active.current);
+        ? { position: 'absolute', left: `${s.x * r.width}px`, top: `${s.y * r.height}px`, transform: `translate(-50%, -50%)${zoom}`, width: 'max-content', transformOrigin: 'center center' }
+        : { position: '', left: '', top: '', transform: zoom.trim(), width: '', transformOrigin: s.position === 'top' ? 'center top' : s.position === 'middle' ? 'center center' : 'center bottom' });
+      CutlinePanels.styleLine(line, s, fontPx, state.language);
+      // Karaoke: how far each word is filled, from the edited time (as the export's \\kf timing).
+      const words = active.span.words;
+      const fill = style.animation === 'karaoke' ? (i) => {
+        const k = words.indexOf(i);
+        const from = k === 0 ? spanStart : E.toEdited(state.kept, state.words[i].start);
+        const until = k === words.length - 1 ? E.toEdited(state.kept, Math.max(state.words[i].end, state.words[i].start), true) : E.toEdited(state.kept, state.words[words[k + 1]].start);
+        return until > from ? (e - from) / (until - from) : (e >= from ? 1 : 0);
+      } : null;
+      CutlinePanels.fillLine(line, words.map((i) => ({ text: state.words[i].text, i })), s, active.current, fill);
       layer.hidden = false;
     }
 

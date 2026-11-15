@@ -893,3 +893,22 @@ body.cropping .overlay-layers, body.cropping .caption-layer, body.cropping .canv
 
 /* A recording added to the end plays in the first one's box, fitted inside it. */
 .pic-inner video.joined-video { object-fit: contain; background: #000; }
+
+/* Caption style controls */
+.cap-custom { margin-top: 12px; border-top: 1px solid var(--line, rgba(127,127,127,0.25)); padding-top: 8px; }
+.cap-custom summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.cap-custom .field { margin-top: 8px; }
+.cap-colours { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 12px; }
+.cap-colours label { display: flex; align-items: center; gap: 6px; }
+.cap-colours input[type="color"] { width: 28px; height: 22px; padding: 0; border: none; background: none; }
+.segmented.wrap { flex-wrap: wrap; }
+.cap-style-actions { display: flex; gap: 8px; margin-top: 10px; }
+.saved-style { position: relative; }
+.saved-style .saved-del { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; line-height: 18px; padding: 0; border-radius: 10px; }
+#cap-saved:empty { display: none; }
+
+/* Safe zones: Instagram Reels (default) and YouTube Shorts */
+.guides-label { position: absolute; left: 6px; top: 4px; font: 600 10px system-ui, sans-serif; color: rgba(255, 140, 140, 0.9); }
+body.guides-shorts .guides .safe-top { height: 9%; }
+body.guides-shorts .guides .safe-bottom { height: 19%; }
+body.guides-shorts .guides .safe-right { top: 34%; bottom: 19%; width: 17%; }
