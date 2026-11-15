@@ -3,6 +3,16 @@
 (function (root) {
   const isNode = typeof module !== 'undefined' && module.exports;
   const Frame = isNode ? require('./frame.js') : root.CutlineFrame;
+  const Edits = isNode ? require('./edits.js') : root.CutlineEdits;
+
+  // Kept ranges are rendered in groups, each read through its own seek into the file, so a frame
+  // passes through at most this many trims (one trim per range over the whole file made a
+  // 200-cut export five times slower than a 50-cut one).
+  const GROUP = 32;
+  // Each side of a cut fades over this long, so a cut in the middle of a sound does not click.
+  const CUT_FADE = 0.005;
+
+  const { frameRate } = Frame;
 
   // Studio Sound: rumble filter, non-local-means noise reduction, a noise gate that quiets the
   // gaps between words, a little presence for clarity, gentle compression and a limiter.
@@ -29,26 +39,54 @@
   function buildRenderArgs({
     input, output, ranges, hasVideo, hasAudio, duration, width, height,
     overlays = [], audio = [], assPath = null, textAssPath = null, fontsDir = null, clip = null, crf = 18,
-    preset = 'medium', filterPath,
+    preset = 'medium', filterPath, fps = null,
   }) {
   // Crop, rotation, frame and placement (see renderer/frame.js); speed and volume come last so
     // B-roll and caption times, which are on the edited timeline, stay in step.
     const L = Frame.layout(width || 1280, height || 720, clip);
     const { speed, volume, muted, enhance } = L.props;
     if (!ranges.length) throw new Error('Nothing left to export: every part of the media is cut.');
+    // Video is put on a constant frame grid first and cut on whole frames, so every piece is
+    // exactly as long as its range and captions and overlays stay in step however many cuts
+    // there are.
+    const rate = frameRate(fps);
+    if (hasVideo) ranges = Edits.snapRanges(ranges, rate.value);
+    if (!ranges.length) throw new Error('Nothing left to export: every part of the media is cut.');
+    const frame = 1 / rate.value;
     const parts = [];
     const labels = [];
-    ranges.forEach(([start, end], i) => {
-      const s = start.toFixed(3);
-      const e = end.toFixed(3);
-      if (hasVideo) parts.push(`[0:v]trim=start=${s}:end=${e},setpts=PTS-STARTPTS,${SQUARE}[v${i}]`);
-      if (hasAudio) parts.push(`[0:a]atrim=start=${s}:end=${e},asetpts=PTS-STARTPTS[a${i}]`);
-      labels.push(`${hasVideo ? `[v${i}]` : ''}${hasAudio ? `[a${i}]` : ''}`);
-    });
+    const inputs = [];
+    const sec = (t) => Math.max(0, t).toFixed(6);
+    const size = GROUP;
+    for (let g = 0; g * size < ranges.length; g++) {
+      const group = ranges.slice(g * size, (g + 1) * size);
+      // Start reading a second (of whole frames) before the group, so times stay on the frame grid.
+      const lead = Math.round(rate.value) * frame;
+      const from = Math.max(0, hasVideo ? Math.round((group[0][0] - lead) * rate.value) * frame : group[0][0] - 1);
+      const to = group[group.length - 1][1];
+      if (from > 0) inputs.push('-ss', from.toFixed(6));
+      inputs.push('-t', (to - from + 1).toFixed(6), '-i', input);
+      const n = group.length;
+      const fan = (kind) => (n > 1 ? `,${kind}=${n}${group.map((_, k) => `[${kind[0]}${g}_${k}]`).join('')}` : `[${kind[0]}${g}_0]`);
+      if (hasVideo) parts.push(`[${g}:v]fps=${rate.text},${SQUARE}${fan('split')}`);
+      if (hasAudio) parts.push(`[${g}:a]anull${fan('asplit')}`);
+      group.forEach(([start, end], k) => {
+        const i = g * size + k;
+        // After the fps filter, times count in whole frames, and trim rounds these to the nearest.
+        if (hasVideo) parts.push(`[s${g}_${k}]trim=start=${sec(start - from)}:end=${sec(end - from)},setpts=PTS-STARTPTS[v${i}]`);
+        if (hasAudio) {
+          const len = end - start;
+          const fades = len > CUT_FADE * 4
+            ? `${i > 0 ? `,afade=t=in:st=0:d=${CUT_FADE}` : ''}${i < ranges.length - 1 ? `,afade=t=out:st=${(len - CUT_FADE).toFixed(6)}:d=${CUT_FADE}` : ''}`
+            : '';
+          parts.push(`[a${g}_${k}]atrim=start=${sec(start - from)}:end=${sec(end - from)},asetpts=PTS-STARTPTS${fades}[a${i}]`);
+        }
+        labels.push(`${hasVideo ? `[v${i}]` : ''}${hasAudio ? `[a${i}]` : ''}`);
+      });
+    }
     const outs = `${hasVideo ? '[cv]' : ''}${hasAudio ? '[ca]' : ''}`;
     parts.push(`${labels.join('')}concat=n=${ranges.length}:v=${hasVideo ? 1 : 0}:a=${hasAudio ? 1 : 0}${outs}`);
 
-    const inputs = ['-i', input];
     // Extra sounds to mix with the voice: overlay videos turned up, and audio-track items.
     const sounds = [];
     if (hasVideo) {
@@ -74,7 +112,7 @@
           parts.push(`[bg][pic]overlay=${draw.x}:${draw.y},format=yuv420p[base]`);
         } else {
           parts.push(`[cv]${cropTurn},scale=${draw.w}:${draw.h},setsar=1[pic]`);
-          parts.push(`color=c=${L.props.background.replace('#', '0x')}:s=${W}x${H}:r=30[bg]`);
+          parts.push(`color=c=${L.props.background.replace('#', '0x')}:s=${W}x${H}:r=${rate.text}[bg]`);
           parts.push(`[bg][pic]overlay=${draw.x}:${draw.y}:shortest=1,format=yuv420p[base]`);
         }
       }
@@ -158,7 +196,7 @@
     }
 
     const args = ['-hide_banner', '-nostdin', '-y', ...inputs, '-filter_complex', parts.join(';')];
-    if (hasVideo) args.push('-map', '[outv]', '-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-r', '30');
+    if (hasVideo) args.push('-map', '[outv]', '-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-r', rate.text);
     if (hasAudio) args.push('-map', '[outa]');
     if (hasAudio && /\.(mp4|mov|m4a)$/i.test(output)) args.push('-c:a', 'aac', '-b:a', '192k');
     if (/\.(mp4|mov|m4a)$/i.test(output)) args.push('-movflags', '+faststart');
@@ -168,7 +206,7 @@
     return { args, total };
   }
 
-  const api = { STUDIO_SOUND, SQUARE, buildRenderArgs };
+  const api = { STUDIO_SOUND, SQUARE, GROUP, CUT_FADE, frameRate, buildRenderArgs };
   if (isNode) module.exports = api;
   else root.CutlineRenderPlan = api;
 })(typeof window !== 'undefined' ? window : globalThis);

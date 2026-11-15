@@ -224,6 +224,22 @@ Do these in the order listed. 1.1 to 1.3 are the safety net for 1.4.
 7. **Model:** **Fable 5.2.** One closure shares about 40 variables across 3,000 lines; the boundaries have to be worked out across the whole file before any cut is safe.
 
 #### 1.5 Export engine hardening
+
+**Status: done except the hardware encoder.** Measured with `scripts/bench-export.js` (Apple silicon, 640x360 source):
+
+| Source | Cuts | Before | After | Drift before | Drift after |
+|---|---|---|---|---|---|
+| 5 min | 50 | 8.9 s | 7.0 s | +0.43 s | 0 |
+| 5 min | 200 | 40.9 s | 8.6 s | +1.17 s | 0 |
+| 60 min | 50 | not run | 93 s | | 0 |
+| 60 min | 200 | not run | 126 s | | 0 |
+| 60 min | 800 | not run | 263 s | | 0 |
+
+- The drift was a real bug: each cut made the video about 7 ms longer than the timeline, so captions and B-roll ran early (about 0.3 s after 50 cuts). Video is now put on a constant frame grid and cut on whole frames; the page, the main process and the recipe all use the same frame-aligned ranges (`Edits.snapRanges`).
+- Export time no longer multiplies with the cut count: kept ranges are read in groups of 32, each through its own seek.
+- Frame rate follows the source (up to 60, NTSC rates exact). Each side of a cut fades the sound over 5 ms.
+- Memory: at 1080p ffmpeg peaked at 0.8 GB with 50 cuts and 1.2 GB with 200 (about 75 MB per extra group). An 800-cut 1080p edit was not run; by that rate it would need roughly 2.7 GB.
+- Not done: the `h264_videotoolbox` fast option, and variable-frame-rate phone footage was not tested with a real file (the constant frame grid is meant to handle it).
 1. **Why:** export is the product; today it changes frame rate, can click at cuts and is unproven on long edits.
 2. **Files:** `src/renderer/render-plan.js`, `src/media.js` (`probe`, `renderEdit`), `src/main.js` (`media:export`), `test/media.test.js`.
 3. **Approach:**

@@ -46,10 +46,15 @@
       else exportMedia({ preset: exportPreset, quality: $('export-quality').value, burn: $('export-burn').checked, subtitles: $('export-srt').checked });
     });
 
-    function subtitlesText(format) {
+    // The kept ranges as the export cuts them: on whole video frames (see Edits.snapRanges).
+    function exportRanges() {
+      return state.media.hasVideo ? E.snapRanges(state.kept, F.frameRate(state.media.fps).value) : state.kept;
+    }
+
+    function subtitlesText(format, ranges = exportRanges()) {
       return C.buildSubtitles({
         words: state.words, deleted: state.deleted, settings: state.captions, format,
-        toEdited: (t) => E.toEdited(state.kept, t), speed: state.clip.speed,
+        toEdited: (t) => E.toEdited(ranges, t), speed: state.clip.speed,
       });
     }
 
@@ -65,7 +70,8 @@
 
     async function exportMedia({ preset = 'edited', quality = null, burn = state.captions.enabled, subtitles = false } = {}) {
       if (!hasProject() || state.busy) return;
-      const ranges = state.kept;
+      // Cut on whole video frames, and place tracks and subtitles on that same timeline.
+      const ranges = exportRanges();
       if (!ranges.length) { toast('Everything is cut. Restore some words before exporting.', { error: true }); return; }
       els.video.pause();
       state.busy = true;
@@ -76,10 +82,10 @@
       });
       try {
         const out = await cutline.exportMedia(state.media, ranges, {
-          ...T.forExport(state.tracks, state.kept),
+          ...T.forExport(state.tracks, ranges),
           preset,
           quality,
-          subtitles: subtitles && state.words.length ? { format: 'srt', content: subtitlesText('srt') } : null,
+          subtitles: subtitles && state.words.length ? { format: 'srt', content: subtitlesText('srt', ranges) } : null,
           captions: {
             settings: { ...state.captions, enabled: burn },
             words: state.words,
