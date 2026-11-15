@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('cutline', {
   onOpenPath: (cb) => subscribe('media:open-path', cb),
   options: () => ipcRenderer.invoke('media:options'),
   transcribe: (filePath, language, quality) => ipcRenderer.invoke('media:transcribe', { filePath, language, quality }),
-  timeline: (media) => ipcRenderer.invoke('media:timeline', { filePath: media.path, duration: media.duration, hasVideo: media.hasVideo }),
+  timeline: (media) => ipcRenderer.invoke('media:timeline', { filePath: media.path, duration: media.duration, hasVideo: media.hasVideo, sources: media.sources?.map(({ path, duration, offset }) => ({ path, duration, offset })) }),
   exportMedia: (media, ranges, extras = {}) => ipcRenderer.invoke('media:export', { media, ranges, ...extras }),
   saveCaptions: (media, content, format) => ipcRenderer.invoke('captions:save', { media, content, format }),
   settings: () => ipcRenderer.invoke('settings:get'),

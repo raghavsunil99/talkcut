@@ -54,7 +54,7 @@
     function subtitlesText(format, ranges = exportRanges()) {
       return C.buildSubtitles({
         words: state.words, deleted: state.deleted, settings: state.captions, format,
-        toEdited: (t) => E.toEdited(ranges, t), speed: state.clip.speed,
+        toEdited: (t, end) => E.toEdited(ranges, t, end), speed: state.clip.speed, ends: state.ends,
       });
     }
 
@@ -92,6 +92,7 @@
             words: state.words,
             deleted: [...state.deleted],
             language: state.language,
+            ends: state.ends ? Array.from(state.ends) : null,
           },
           clip: state.clip,
         });

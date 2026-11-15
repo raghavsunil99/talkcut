@@ -1,7 +1,7 @@
 // Project flows: opening media, the transcription prompt, the home screen, and opening, saving and renaming projects.
 // Split out of app.js; app.js passes in what it shares (see the create() call there).
 (function (root) {
-  function create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled }) {
+  function create({ $, els, state, E, C, F, T, commit, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled }) {
     // ---------- file flows ----------
 
     function resetFor(media) {
@@ -13,6 +13,9 @@
       state.speakers = {};
       state.deleted = new Set();
       state.cutGaps = new Set();
+      state.order = null;
+      state.playK = -1;
+      state.clipboard = null;
       state.splits = [];
       state.rangeCuts = [];
       state.rangeSel = null;
@@ -25,7 +28,7 @@
       state.caret = null;
       state.textVersion++;
       state.projectPath = null;
-      els.video.src = media.url;
+      els.video.setSources(media.sources ?? [{ url: media.url, duration: 0 }]);
       state.clip = F.normalize(null);
       properties.setProps(state.clip, 0);
       applyAudio();
@@ -155,17 +158,25 @@
       setCancellable(true);
       let result;
       try {
-        result = await transcribeWithFailover(state.media.path);
+        // Every recording in the project, each one's words placed at its offset.
+        const files = state.media.sources ?? [{ path: state.media.path, offset: 0 }];
+        result = { words: [], language: null };
+        for (const f of files) {
+          const part = await transcribeWithFailover(f.path);
+          result.language ??= part.language;
+          for (const w of part.words) result.words.push(f.offset ? { ...w, start: w.start + f.offset, end: w.end + f.offset } : w);
+        }
       } finally {
         setCancellable(false);
       }
       const { words, language } = result;
       if (!words.length) throw new Error('No speech was found in this file.');
       const labelled = CutlineSpeakers.fromTranscript(E.applyWordList(words, wordList()));
-      state.words = labelled.words;
+      state.words = E.ensureIds(labelled.words);
       state.speakers = labelled.speakers;
       state.deleted = new Set();
       state.cutGaps = new Set();
+      state.order = null;
       state.language = language;
       state.textVersion++;
       panels.setLanguage(language);
@@ -324,7 +335,9 @@
         home.hide();
         resetFor(project.media);
         const valid = (i, min) => Number.isInteger(i) && i >= min && i < project.words.length;
-        state.words = project.words;
+        state.words = E.ensureIds(project.words);
+        const order = E.normalizeOrder(project.order, project.media.duration || 0);
+        state.order = E.isIdentity(order, project.media.duration || 0) ? null : order;
         state.speakers = project.speakers && typeof project.speakers === 'object' ? project.speakers : {};
         state.language = project.language;
         state.deleted = new Set(project.deleted.filter((i) => valid(i, 0)));
@@ -357,12 +370,13 @@
     function buildProject() {
       const { path, name, duration: d, hasVideo, hasAudio, width, height } = state.media;
       return {
-        media: { path, name, duration: d, hasVideo, hasAudio, width, height },
+        media: { path, name, duration: d, hasVideo, hasAudio, width, height, ...(state.media.sources ? { sources: state.media.sources.map((s) => ({ path: s.path, name: s.name, duration: s.duration })) } : {}) },
         language: state.language,
         words: state.words,
         speakers: state.speakers,
         deleted: [...state.deleted].sort((a, b) => a - b),
         cutGaps: [...state.cutGaps].sort((a, b) => a - b),
+        order: state.order,
         splits: state.splits,
         rangeCuts: state.rangeCuts,
         captions: state.captions,
@@ -421,7 +435,76 @@
       }
     });
 
-    return { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home };
+    // ---------- a second recording ----------
+
+    // The files behind the project changed (a recording was added, or that was undone): give
+    // the player its files and load the waveform and thumbnails again.
+    function applyMedia() {
+      els.video.pause();
+      els.video.setSources(state.media.sources ?? [{ url: state.media.url, duration: 0 }]);
+      state.loadToken++;
+      loadTimelineAssets();
+    }
+
+    // Add another recording after the end of this one. Its words (transcribed the same way as
+    // the project's, when the project has a transcript) follow the existing ones and can be
+    // cut and moved like any others. ⌘Z takes the recording out again.
+    // `transcript` (words timed from the start of the added file) stands in for transcribing;
+    // automated checks use it.
+    async function addRecording(added, { transcript = null } = {}) {
+      if (!hasProject() || state.busy) return;
+      try {
+        added = added ?? await cutline.openMedia();
+        if (!added) return;
+        const media = state.media;
+        const current = media.sources ?? [{ path: media.path, url: media.url, name: media.name, hasVideo: media.hasVideo, hasAudio: media.hasAudio, width: media.width, height: media.height, duration: duration(), offset: 0 }];
+        if (media.hasVideo !== added.hasVideo) throw new Error(media.hasVideo ? 'This project is a video, so the recording added to it must be a video too.' : 'This project is audio only, so the recording added to it must be audio too.');
+        if (current.some((s) => s.path === added.path)) throw new Error('That recording is already in this project.');
+        // The new file starts on a whole video frame, so cuts inside it stay exact in the export.
+        const fps = F.frameRate(media.fps).value;
+        const old = duration();
+        const start = media.hasVideo ? Math.ceil(old * fps - 1e-6) / fps : old;
+        const last = current[current.length - 1];
+        const sources = [
+          ...current.slice(0, -1),
+          { ...last, duration: start - last.offset },
+          { path: added.path, url: added.url, name: added.name, hasVideo: added.hasVideo, hasAudio: added.hasAudio, width: added.width, height: added.height, duration: added.duration, offset: start },
+        ];
+        const total = start + added.duration;
+        let words = state.words;
+        let speakers = state.speakers;
+        let note = '';
+        if (state.words.length) {
+          state.busy = true;
+          refresh();
+          showOverlay('Preparing audio…', added.name);
+          setCancellable(true);
+          try {
+            const part = transcript ? { words: transcript } : await transcribeWithFailover(added.path);
+            const labelled = CutlineSpeakers.fromTranscript(E.applyWordList(part.words, wordList()));
+            words = E.ensureIds([...state.words, ...labelled.words.map(({ id, ...w }) => ({ ...w, start: w.start + start, end: w.end + start }))]);
+            speakers = { ...labelled.speakers, ...state.speakers };
+            note = ` and transcribed ${part.words.length} words`;
+          } catch (err) {
+            note = isCancelled(err) ? ', without a transcript (cancelled)' : `, without a transcript (${String(err?.message ?? err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '').replace(/[.\s]*$/, '')})`;
+          } finally {
+            setCancellable(false);
+            state.busy = false;
+            hideOverlay();
+          }
+        }
+        // The play order gains the new recording as its last piece.
+        const pieces = (state.order ?? [[0, old]]).map(([s, e]) => [s, Math.abs(e - old) < 1e-6 ? start : e]);
+        const order = E.normalizeOrder([...pieces, [start, total]], total);
+        commit({ words, speakers, order: E.isIdentity(order, total) ? null : order, media: { ...media, duration: total, sources } });
+        toast(`Added ${added.name} to the end${note}. Press ⌘Z to take it out again.`, { ms: 7000 });
+      } catch (err) {
+        showError(err);
+        refresh();
+      }
+    }
+
+    return { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home, addRecording, applyMedia };
   }
 
   root.CutlineProjectFlows = { create };

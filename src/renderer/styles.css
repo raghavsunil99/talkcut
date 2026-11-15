@@ -885,3 +885,11 @@ body.cropping .overlay-layers, body.cropping .caption-layer, body.cropping .canv
 .update-notice { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 10px 14px; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; font-size: 13px; }
 .update-notice span { flex: 1; }
 .home-credit { position: fixed; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); margin: 0; pointer-events: none; }
+
+/* Dragging selected words to a new place: where they will land. */
+.transcript.moving-words { cursor: grabbing; }
+.transcript .w.drop-before { box-shadow: inset 3px 0 0 var(--accent); }
+.transcript .w.drop-after { box-shadow: inset -3px 0 0 var(--accent); }
+
+/* A recording added to the end plays in the first one's box, fitted inside it. */
+.pic-inner video.joined-video { object-fit: contain; background: #000; }

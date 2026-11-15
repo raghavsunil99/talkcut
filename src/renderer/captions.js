@@ -129,8 +129,10 @@
   }
 
   // Split kept words into short caption groups: a group ends at a sentence end, a pause,
-  // or when it reaches the preset's word or character limit.
-  function groupWords(words, deleted, presetId) {
+  // or when it reaches the preset's word or character limit. `ends` (optional, from
+  // Edits.pieceEnds) says where each word's piece of the recording ends: after words have been
+  // moved, a group never runs across a join.
+  function groupWords(words, deleted, presetId, ends = null) {
     const p = PRESETS[presetId] ?? PRESETS.highlight;
     const groups = [];
     let cur = [];
@@ -138,8 +140,9 @@
     const flush = () => { if (cur.length) groups.push(cur); cur = []; chars = 0; };
     words.forEach((w, i) => {
       if (deleted.has(i)) return;
-      const prev = cur.length ? words[cur[cur.length - 1]] : null;
-      if (prev && (w.start - prev.end > 0.7 || cur.length >= p.maxWords || chars + w.text.length + 1 > p.maxChars)) flush();
+      const prevIndex = cur.length ? cur[cur.length - 1] : -1;
+      const prev = prevIndex >= 0 ? words[prevIndex] : null;
+      if (prev && (w.start - prev.end > 0.7 || w.start < prev.start || (ends && ends[i] !== ends[prevIndex]) || cur.length >= p.maxWords || chars + w.text.length + 1 > p.maxChars)) flush();
       cur.push(i);
       chars += w.text.length + 1;
       if (/[.!?।]["')\]]?$/.test(w.text)) flush();
@@ -150,25 +153,36 @@
 
   // Caption timing on the source timeline: a group shows from its first word until the next
   // group starts, but no longer than 0.6 s after its last word.
-  function groupSpans(groups, words) {
+  // At a join the next group is somewhere else in the recording, so the group ends with its piece.
+  function groupSpans(groups, words, ends = null) {
     return groups.map((g, k) => {
       const start = words[g[0]].start;
-      const lastEnd = Math.max(words[g[g.length - 1]].end, words[g[g.length - 1]].start + 0.2);
-      const next = groups[k + 1] ? words[groups[k + 1][0]].start : Infinity;
-      return { words: g, start, end: Math.min(next, lastEnd + 0.6) };
+      const last = g[g.length - 1];
+      const lastEnd = Math.max(words[last].end, words[last].start + 0.2);
+      const nextStart = groups[k + 1] ? words[groups[k + 1][0]].start : Infinity;
+      const joined = groups[k + 1] && (nextStart < start || (ends && ends[groups[k + 1][0]] !== ends[last]));
+      const limit = ends ? Math.max(ends[last], start + 0.05) : Infinity;
+      return { words: g, start, end: Math.min(joined ? Infinity : nextStart, lastEnd + 0.6, limit) };
     });
   }
 
   // What to show at source time t: the group and the index of the word being spoken.
+  // Spans are in play order; the search runs over them sorted by source time.
+  const sortedSpans = new WeakMap();
   function activeAt(spans, words, t) {
+    let list = sortedSpans.get(spans);
+    if (!list) {
+      list = spans.every((sp, n) => n === 0 || sp.start >= spans[n - 1].start) ? spans : spans.slice().sort((a, b) => a.start - b.start);
+      sortedSpans.set(spans, list);
+    }
     let lo = 0;
-    let hi = spans.length - 1;
+    let hi = list.length - 1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
-      if (t < spans[mid].start) hi = mid - 1;
-      else if (t >= spans[mid].end) lo = mid + 1;
+      if (t < list[mid].start) hi = mid - 1;
+      else if (t >= list[mid].end) lo = mid + 1;
       else {
-        const span = spans[mid];
+        const span = list[mid];
         let current = span.words[0];
         for (const i of span.words) if (words[i].start <= t) current = i;
         return { span, current };
@@ -184,10 +198,11 @@
   // ---------- subtitle files ----------
 
   // SRT or WebVTT for the edited video: the same caption groups as the burned-in captions.
-  // `toEdited` maps source time to edited time; speed is the clip's playback speed.
-  function buildSubtitles({ words, deleted, settings, toEdited, speed = 1, format = 'srt' }) {
+  // `toEdited(t, end)` maps source time to edited time (end: t is where something stops);
+  // speed is the clip's playback speed; `ends` is Edits.pieceEnds when words have been moved.
+  function buildSubtitles({ words, deleted, settings, toEdited, speed = 1, format = 'srt', ends = null }) {
     const s = settingsOf(settings);
-    const spans = groupSpans(groupWords(words, deleted, s.preset), words);
+    const spans = groupSpans(groupWords(words, deleted, s.preset, ends), words, ends);
     const stamp = (t) => {
       const ms = Math.max(0, Math.round((t / speed) * 1000));
       const hh = String(Math.floor(ms / 3600000)).padStart(2, '0');
@@ -198,7 +213,7 @@
     const cues = [];
     for (const span of spans) {
       const start = toEdited(span.start);
-      const end = toEdited(span.end);
+      const end = toEdited(span.end, true);
       if (end - start < 0.05) continue;
       const text = span.words.map((i) => words[i].text.trim()).join(' ').replace(/\s+/g, ' ').trim();
       if (text) cues.push({ start, end, text });
@@ -235,7 +250,7 @@
   }
 
   // Full ASS document for the edited video. `toEdited` maps source time to edited time.
-  function buildAss({ words, deleted, settings, language, width, height, toEdited }) {
+  function buildAss({ words, deleted, settings, language, width, height, toEdited, ends = null }) {
     const s = settingsOf(settings);
     const p = PRESETS[s.preset];
     const fontSize = Math.round(fontPx(s, width, height));
@@ -268,7 +283,7 @@
     ];
 
     const events = [];
-    const spans = groupSpans(groupWords(words, deleted, s.preset), words);
+    const spans = groupSpans(groupWords(words, deleted, s.preset, ends), words, ends);
     for (const span of spans) {
       const line = (current) => span.words.map((i) => {
         const text = withFontRuns(assEscape(displayText(words[i].text, p)), language, fontSize);
@@ -277,7 +292,7 @@
       }).join(' ');
       if (p.mode === 'line' || p.hi === p.text) {
         const a = toEdited(span.start);
-        const b = toEdited(span.end);
+        const b = toEdited(span.end, true);
         if (b - a > 0.02) events.push(`Dialogue: 0,${assTime(a)},${assTime(b)},Cap,,0,0,0,,${pos}${line(-1)}`);
         continue;
       }
@@ -286,7 +301,7 @@
         const from = k === 0 ? span.start : words[i].start;
         const to = k === span.words.length - 1 ? span.end : words[span.words[k + 1]].start;
         const a = toEdited(from);
-        const b = toEdited(to);
+        const b = toEdited(to, true);
         if (b - a > 0.02) events.push(`Dialogue: 0,${assTime(a)},${assTime(b)},Cap,,0,0,0,,${pos}${line(i)}`);
       });
     }

@@ -1,4 +1,4 @@
-/* global CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
+/* global CutlinePlayer, CutlineEdits, CutlineCaptions, CutlineTimeline, CutlinePanels, CutlineFrame, CutlineProperties, CutlineTracks, cutline */
 (() => {
   const E = CutlineEdits;
   const C = CutlineCaptions;
@@ -26,7 +26,7 @@
     docTitle: $('doc-title'),
     docLanguage: $('doc-language'),
     player: $('player'),
-    video: $('video'),
+    video: CutlinePlayer.create($('video')), // behaves like the <video>; see player.js
     layers: $('overlay-layers'),
     captionLayer: $('caption-layer'),
     audioArt: $('audio-art'),
@@ -65,12 +65,21 @@
   };
 
   const state = {
-    media: null, // { path, url, name, duration, hasVideo, hasAudio, width, height }
+    // { path, url, name, duration, hasVideo, hasAudio, width, height }. With recordings added to
+    // the end, `duration` is the total and `sources` lists every file: [{ path, url, name,
+    // duration, offset, ... }], the first being this one. Times everywhere run through all of them.
+    media: null,
     words: [],
     language: null, // what the transcript is in, e.g. 'te'
     speakers: {}, // speaker id -> name, when words are labelled
     deleted: new Set(),
     cutGaps: new Set(), // pauses shortened, keyed like CutlineEdits.gaps
+    // Play order: pieces of the recording [[start, end]] in the order they play, or null for
+    // straight through. `words` is always in play order. See the notes in edits.js.
+    order: null,
+    ends: null, // per word, where its piece ends (null when nothing was moved)
+    playK: -1, // the kept range playback is in, -1 when unknown
+    clipboard: null, // words cut with ⌘X, waiting to be pasted: { ids, restore }
     // B-roll laid over the picture. `start` is a time in the original media, so a clip stays
     // with the words under it when other parts are cut; `length` is seconds of edited video.
     tracks: [], // overlay and audio tracks, see tracks.js
@@ -273,7 +282,7 @@
       state.itemSel = null;
       state.gapSel = i;
       refresh();
-      const gap = E.gaps(state.words, duration()).find((g) => g.i === i);
+      const gap = E.gaps(state.words, duration(), undefined, state.order).find((g) => g.i === i);
       if (gap) seek(gap.start);
     },
     onSelectItem: (id) => {
@@ -350,9 +359,10 @@
 
   function refresh() {
     const d = duration();
-    state.cuts = E.computeCuts(state.words, state.deleted, d, state.cutGaps, state.rangeCuts);
-    state.kept = E.keptRanges(state.cuts, d);
-    state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions.preset), state.words);
+    state.cuts = E.computeCuts(state.words, state.deleted, d, state.cutGaps, state.rangeCuts, state.order);
+    state.kept = E.keptRanges(state.cuts, d, state.order);
+    state.ends = E.isIdentity(state.order, d) ? null : E.pieceEnds(state.words, state.order, d);
+    state.captionSpans = C.groupSpans(C.groupWords(state.words, state.deleted, state.captions.preset, state.ends), state.words, state.ends);
     resetCaptionCache();
     const sel = selectionRange();
     if (state.media && !state.loadingMedia && mod.transcript.needsRender()) renderTranscript();
@@ -361,7 +371,7 @@
     });
     paintCaret();
     if (hasProject()) {
-      timeline.setEdits({ words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, selection: sel, gapSel: state.gapSel, rangeCuts: state.rangeCuts });
+      timeline.setEdits({ words: state.words, deleted: state.deleted, cutGaps: state.cutGaps, selection: sel, gapSel: state.gapSel, rangeCuts: state.rangeCuts, order: state.order });
       timeline.setMarks({ splits: state.splits, rangeSel: state.rangeSel });
       timeline.setTracks(T.placed(state.tracks, state.kept), state.itemSel);
       const capsOn = state.captions.enabled && state.media?.hasVideo;
@@ -413,7 +423,7 @@
   // ---------- edits ----------
 
   function snapshot() {
-    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
+    return { words: state.words, deleted: new Set(state.deleted), cutGaps: new Set(state.cutGaps), order: state.order, media: state.media, tracks: state.tracks, clip: state.clip, splits: state.splits, rangeCuts: state.rangeCuts, captions: state.captions, speakers: state.speakers };
   }
 
   function restore(snap) {
@@ -421,6 +431,10 @@
     state.words = snap.words;
     state.deleted = snap.deleted;
     state.cutGaps = snap.cutGaps;
+    if ('order' in snap) state.order = snap.order;
+    // Undoing or redoing "Add Recording to End" changes the files behind the project.
+    if (snap.media && state.media && snap.media !== state.media && snap.media.path === state.media.path) { state.media = snap.media; mod.applyMedia?.(); }
+    state.playK = -1;
     if (snap.tracks) state.tracks = snap.tracks;
     if (snap.clip) state.clip = snap.clip;
     if (snap.splits) state.splits = snap.splits;
@@ -431,11 +445,11 @@
     state.textVersion++;
   }
 
-  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
+  function commit({ words = state.words, deleted = state.deleted, cutGaps = state.cutGaps, order = state.order, media = state.media, tracks = state.tracks, clip = state.clip, splits = state.splits, rangeCuts = state.rangeCuts, captions = state.captions, speakers = state.speakers }) {
     state.undo.push(snapshot());
     if (state.undo.length > 500) state.undo.shift();
     state.redo = [];
-    restore({ words, deleted, cutGaps, tracks, clip, splits, rangeCuts, captions, speakers });
+    restore({ words, deleted, cutGaps, order, media, tracks, clip, splits, rangeCuts, captions, speakers });
     setDirty(true);
     refresh();
   }
@@ -445,7 +459,7 @@
   mod.inspector = CutlineItemInspector.create({ $, els, state, E, T, panels, frameLayout, itemAspect, commit, refresh, setDirty, snapshot, updatePlayhead, editedLength, fmtTenths, showError, getCanvasEditor, resetCaptionCache });
   const { openRailPanel, brollPlacement, mediaAspect } = mod.inspector;
   function renderItemInspector() { mod.inspector?.renderItemInspector(); }
-  const { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia } = CutlineEditCommands.create({ $, els, state, E, T, getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast });
+  const { cutSelection, cutAtCaret, restoreRun, beginEdit, removeFillers, removeRetakes, shortenPauses, insertMedia, moveSelection, cutWords, copyWords, pasteWords } = CutlineEditCommands.create({ $, els, state, E, T, setSelection: (a, f) => setSelection(a, f), getSpans, hasProject, duration, editedLength, selectionRange, visibleFrom, visibleBefore, commit, refresh, brollPlacement, mediaAspect, openRailPanel, fmtTenths, toast });
   // Speakers first: the find module uses showSpeakerMenu.
   const { showSpeakerMenu, labelRange } = CutlineSpeakersUI.create({ $, els, state, selectionRange, commit, renderTranscript, refresh });
   const { wordList, openFind } = CutlineFindReplace.create({ $, els, state, E, getSpans, hasProject, selectionRange, setSelection, visibleFrom, wordIndexFrom, beginEdit, cutSelection, showSpeakerMenu, seek, commit, renderTranscript, toast });
@@ -492,6 +506,7 @@
   // ---------- playback ----------
 
   function seek(t) {
+    state.playK = -1;
     els.video.currentTime = Math.min(Math.max(0, t), duration());
     updatePlayhead();
   }
@@ -503,24 +518,26 @@
   function togglePlay() {
     if (!state.media) return;
     if (els.video.paused) {
-      const lastKept = state.kept[state.kept.length - 1];
-      if (els.video.ended || (lastKept && els.video.currentTime >= lastKept[1] - 0.05)) seek(state.kept[0]?.[0] ?? 0);
+      // At the end of the edit, Play starts again from the top.
+      if (els.video.ended || E.toEdited(state.kept, els.video.currentTime) >= editedLength() - 0.05) seek(state.kept[0]?.[0] ?? 0);
       els.video.play().catch(showError);
     } else {
       els.video.pause();
     }
   }
 
-  // Skip over cut regions while playing. rAF gives ~16 ms resolution, which is far finer than
+  // Skip over cut regions while playing, and jump to wherever the next piece is when words
+  // have been moved (that can be backward). rAF gives ~16 ms resolution, which is far finer than
   // timeupdate. No new jump starts while a seek is still in flight.
   function tick() {
     if (!els.video.paused && !els.video.seeking) {
-      const skip = E.skipTarget(state.cuts, els.video.currentTime, duration());
-      if (skip?.stopAt != null) {
+      const step = E.playStep(state.kept, els.video.currentTime, state.playK);
+      state.playK = step.k;
+      if (step.stopAt != null) {
         els.video.pause();
-        els.video.currentTime = skip.stopAt;
-      } else if (skip) {
-        els.video.currentTime = skip.seekTo;
+        els.video.currentTime = step.stopAt;
+      } else if (step.seekTo != null) {
+        els.video.currentTime = step.seekTo;
       }
       updatePlayhead();
     }
@@ -545,7 +562,7 @@
     applyAudio();
   });
 
-  const { transcriptFocused, moveCaret } = CutlineTranscriptInput.create({ $, els, state, getSpans, wordIndexFrom, selectionRange, setSelection, clearSelection, visibleFrom, visibleBefore, showSpeakerMenu, labelRange, restoreRun, beginEdit, seek, keepVisible });
+  const { transcriptFocused, moveCaret } = CutlineTranscriptInput.create({ $, els, state, moveSelection, getSpans, wordIndexFrom, selectionRange, setSelection, clearSelection, visibleFrom, visibleBefore, showSpeakerMenu, labelRange, restoreRun, beginEdit, seek, keepVisible });
 
   // ---------- keyboard ----------
 
@@ -560,6 +577,10 @@
       e.preventDefault();
       if (sel || state.rangeSel || state.gapSel != null || state.itemSel != null) cutSelection();
       else cutAtCaret(e.key === 'Delete');
+    } else if (mod && !e.shiftKey && !e.altKey && ['x', 'c', 'v'].includes(e.key.toLowerCase()) && hasProject()) {
+      // Cut, copy and paste of words. The Edit menu items arrive as clipboard events instead.
+      e.preventDefault();
+      clipboardCommand({ x: 'cut', c: 'copy', v: 'paste' }[e.key.toLowerCase()]);
     } else if (e.key === 'Escape') {
       clearSelection();
     } else if (e.key === 'Enter' && sel && hasProject()) {
@@ -582,7 +603,33 @@
     }
   });
 
-  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled });
+  // ---------- cut, copy and paste of words ----------
+
+  // ⌘X cuts the selected words and remembers them; ⌘V moves them to the cursor. ⌘C puts their
+  // text on the system clipboard.
+  let lastClipboardCommand = 0;
+  function clipboardCommand(name, event = null) {
+    // A key press and the menu can both report the same command: act once.
+    const now = performance.now();
+    if (event && now - lastClipboardCommand < 300) return;
+    lastClipboardCommand = now;
+    if (name === 'paste') { pasteWords(); return; }
+    const text = name === 'cut' ? cutWords() : copyWords();
+    if (text == null) return;
+    if (event?.clipboardData) event.clipboardData.setData('text/plain', text);
+    else navigator.clipboard?.writeText(text).catch(() => {});
+  }
+  for (const name of ['cut', 'copy', 'paste']) {
+    document.addEventListener(name, (e) => {
+      if (state.busy || !hasProject() || e.target.closest?.('input, textarea, select, .editing, [contenteditable="true"], [contenteditable="plaintext-only"]')) return;
+      e.preventDefault();
+      clipboardCommand(name, e);
+    });
+  }
+
+  const { loadMedia, openMedia, openProject, save, showHome, duplicateProject, buildProject, confirmDiscard, home, addRecording, applyMedia } = CutlineProjectFlows.create({ $, els, state, E, C, F, T, commit, timeline, properties, panels, IS_MOBILE, languageNames, baseName, fileUrl, hasProject, duration, projectName, setDirty, autosave, cancelAutosave, wordList, refresh, renderTranscript, applyAudio, layerEls, toast, showError, showOverlay, hideOverlay, setCancellable, isCancelled });
+
+  mod.applyMedia = applyMedia;
 
   const { autoFrame } = CutlineAiTools.create({ $, els, state, F, hasProject, duration, commit, refresh, toast, showError, showOverlay, hideOverlay, openFind, showSpeakerMenu, selectionRange });
 
@@ -626,6 +673,7 @@
       'new-project': openMedia,
       home: showHome,
       'duplicate-project': duplicateProject,
+      'add-recording': () => addRecording(),
       save: () => save(),
       'save-as': () => save(true),
       export: openExport,
@@ -687,10 +735,15 @@
       insertBroll: async (p) => insertMedia(await cutline.describeBroll(p)),
       insertText,
       insertAudio: async (p) => insertMedia(await cutline.describeAudio(p)),
+      addRecording: async (p, transcript) => addRecording(await cutline.openPath(p), { transcript }),
       openProject: (p) => openProject(p),
       exportMedia,
       saveCaptionsFile,
       autoFrame,
+      moveSelection,
+      cutWords,
+      pasteWords,
+      setSelection,
       showSpeakerMenu,
       startCrop,
     }),

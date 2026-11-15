@@ -39,7 +39,7 @@
   function buildRenderArgs({
     input, output, ranges, hasVideo, hasAudio, duration, width, height,
     overlays = [], audio = [], assPath = null, textAssPath = null, fontsDir = null, clip = null, crf = 18,
-    preset = 'medium', filterPath, fps = null,
+    preset = 'medium', filterPath, fps = null, sources = null,
   }) {
   // Crop, rotation, frame and placement (see renderer/frame.js); speed and volume come last so
     // B-roll and caption times, which are on the edited timeline, stay in step.
@@ -53,25 +53,64 @@
     if (hasVideo) ranges = Edits.snapRanges(ranges, rate.value);
     if (!ranges.length) throw new Error('Nothing left to export: every part of the media is cut.');
     const frame = 1 / rate.value;
+    // A project can be more than one recording played end to end (`sources`: [{ path, offset,
+    // duration }], offsets in the same source seconds as the ranges). Each range is read from
+    // the file it lies in; a range that runs across a join is cut in two there. Every file is
+    // brought to the first one's picture size and to one sound format so the pieces can be joined.
+    const files = sources && sources.length > 1 ? sources : [{ path: input, offset: 0, duration: Infinity }];
+    const many = files.length > 1;
+    const fileOf = (t) => {
+      for (let n = files.length - 1; n >= 0; n--) if (t >= files[n].offset - 1e-9) return n;
+      return 0;
+    };
+    if (many) {
+      const cut = [];
+      for (const [s, e] of ranges) {
+        let a = s;
+        for (let n = fileOf(s); n < files.length && a < e; n++) {
+          const fileEnd = n < files.length - 1 ? files[n + 1].offset : Infinity;
+          const b = Math.min(e, fileEnd);
+          if (b - a >= frame / 2 || (!hasVideo && b > a)) cut.push([a, b]);
+          a = b;
+        }
+      }
+      ranges = cut;
+    }
+    const W0 = Math.round((width || 0) / 2) * 2;
+    const H0 = Math.round((height || 0) / 2) * 2;
+    const sameSize = many && W0 && H0 ? `,scale=${W0}:${H0}:force_original_aspect_ratio=decrease,pad=${W0}:${H0}:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p` : '';
+    const sameSound = many ? 'aformat=sample_rates=48000:channel_layouts=stereo' : 'anull';
     const parts = [];
     const labels = [];
     const inputs = [];
     const sec = (t) => Math.max(0, t).toFixed(6);
-    const size = GROUP;
-    for (let g = 0; g * size < ranges.length; g++) {
-      const group = ranges.slice(g * size, (g + 1) * size);
+    // A group is a run of ranges that go forward in the file. A range that jumps back (words
+    // moved earlier in the edit) starts a new group with its own seek.
+    const groups = [];
+    for (const range of ranges) {
+      const cur = groups[groups.length - 1];
+      if (cur && cur.length < GROUP && range[0] >= cur[cur.length - 1][1] && fileOf(range[0]) === fileOf(cur[0][0])) cur.push(range);
+      else groups.push([range]);
+    }
+    let done = 0;
+    for (let g = 0; g < groups.length; g++) {
+      const file = files[fileOf(groups[g][0][0])];
+      // Times inside the file this group is read from.
+      const group = groups[g].map(([s, e]) => [s - file.offset, e - file.offset]);
+      const base = done;
+      done += group.length;
       // Start reading a second (of whole frames) before the group, so times stay on the frame grid.
       const lead = Math.round(rate.value) * frame;
       const from = Math.max(0, hasVideo ? Math.round((group[0][0] - lead) * rate.value) * frame : group[0][0] - 1);
       const to = group[group.length - 1][1];
       if (from > 0) inputs.push('-ss', from.toFixed(6));
-      inputs.push('-t', (to - from + 1).toFixed(6), '-i', input);
+      inputs.push('-t', (to - from + 1).toFixed(6), '-i', file.path);
       const n = group.length;
       const fan = (kind) => (n > 1 ? `,${kind}=${n}${group.map((_, k) => `[${kind[0]}${g}_${k}]`).join('')}` : `[${kind[0]}${g}_0]`);
-      if (hasVideo) parts.push(`[${g}:v]fps=${rate.text},${SQUARE}${fan('split')}`);
-      if (hasAudio) parts.push(`[${g}:a]anull${fan('asplit')}`);
+      if (hasVideo) parts.push(`[${g}:v]fps=${rate.text},${SQUARE}${sameSize}${fan('split')}`);
+      if (hasAudio) parts.push(`[${g}:a]${sameSound}${fan('asplit')}`);
       group.forEach(([start, end], k) => {
-        const i = g * size + k;
+        const i = base + k;
         // After the fps filter, times count in whole frames, and trim rounds these to the nearest.
         if (hasVideo) parts.push(`[s${g}_${k}]trim=start=${sec(start - from)}:end=${sec(end - from)},setpts=PTS-STARTPTS[v${i}]`);
         if (hasAudio) {

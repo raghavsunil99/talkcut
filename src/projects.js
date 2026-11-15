@@ -3,6 +3,7 @@
 // the project refers to it by path.
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const Edits = require('./renderer/edits.js');
 
 const EXTENSION = 'talkcut';
 const OLD_EXTENSIONS = ['cutline']; // projects saved before the app was renamed still open
@@ -20,6 +21,7 @@ function openFields(project) {
     words: project.words,
     deleted: project.deleted ?? [],
     cutGaps: project.cutGaps ?? [],
+    order: project.order ?? null,
     language: project.language ?? null,
     captions: project.captions ?? null,
     clip: project.clip ?? null,
@@ -29,6 +31,19 @@ function openFields(project) {
     speakers: project.speakers ?? null,
     extras: project.extras ?? null,
   };
+}
+
+// Project file versions.
+//   2: words in time order, cuts by word index.
+//   3: every word has an id, and `order` lists the pieces of the recording in play order
+//      ([[start, end]] in source seconds, or null for straight through), so words can be moved.
+const VERSION = 3;
+
+// A project from an older version in today's shape. Version 2 files are valid version 3 files
+// once every word has an id; they play straight through, so `order` is null.
+function upgrade(project) {
+  if ((project.version ?? 1) >= VERSION) return project;
+  return { ...project, version: VERSION, words: Edits.ensureIds(project.words), order: null };
 }
 
 // Files used by items on tracks that are no longer on disk, once per file.
@@ -72,7 +87,7 @@ function createProjects({ dir, readSettings, writeSettings }) {
   async function save(filePath, project) {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     const tmp = `${filePath}.saving`;
-    await fs.writeFile(tmp, JSON.stringify({ version: 2, savedAt: Date.now(), ...project }, null, 2));
+    await fs.writeFile(tmp, JSON.stringify({ ...project, words: Edits.ensureIds(project.words ?? []), order: project.order ?? null, version: VERSION, savedAt: Date.now() }, null, 2));
     await fs.rename(tmp, filePath);
     return filePath;
   }
@@ -86,6 +101,20 @@ function createProjects({ dir, readSettings, writeSettings }) {
     }
     if (!project?.media?.path || !Array.isArray(project.words)) throw new Error('This is not a valid Talkcut project.');
     return project;
+  }
+
+  // Open a project, bringing an older file up to date. The old file is first copied to
+  // "<name>.talkcut.v2.bak" beside it (never overwriting an earlier backup), because versions
+  // of the app before this one cannot read the new file correctly.
+  async function open(filePath) {
+    const project = await load(filePath);
+    const from = project.version ?? 1;
+    if (from >= VERSION) return project;
+    const backup = `${filePath}.v${from}.bak`;
+    if (!(await exists(backup))) await fs.copyFile(filePath, backup);
+    const upgraded = upgrade(project);
+    await save(filePath, upgraded);
+    return upgraded;
   }
 
   async function readRecent() {
@@ -106,6 +135,7 @@ function createProjects({ dir, readSettings, writeSettings }) {
     uniquePath,
     save,
     load,
+    open,
 
     // Most recent first; projects whose file is gone are left out.
     async recent() {
@@ -163,4 +193,4 @@ function createProjects({ dir, readSettings, writeSettings }) {
   };
 }
 
-module.exports = { createProjects, openFields, missingTrackFiles, relinkTracks, safeName, EXTENSION, OLD_EXTENSIONS };
+module.exports = { createProjects, upgrade, VERSION, openFields, missingTrackFiles, relinkTracks, safeName, EXTENSION, OLD_EXTENSIONS };
