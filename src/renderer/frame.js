@@ -160,6 +160,17 @@
     return { l: r4(Math.min(a[0], b[0])), t: r4(Math.min(a[1], b[1])), r: r4(1 - Math.max(a[0], b[0])), b: r4(1 - Math.max(a[1], b[1])) };
   }
 
+  // Output frame rate for a source: its own rate up to 60, with the NTSC rates (23.976, 29.97,
+  // 59.94) kept exact. Unknown rates give 30. Returns { value, text } (text for ffmpeg).
+  function frameRate(fps) {
+    const f = Math.min(60, Number(fps));
+    if (!Number.isFinite(f) || f < 1) return { value: 30, text: '30' };
+    const whole = Math.round(f);
+    if (Math.abs(f - (whole * 1000) / 1001) < 0.01 && Math.abs(f - whole) > 0.005) return { value: (whole * 1000) / 1001, text: `${whole * 1000}/1001` };
+    const r = Math.abs(f - whole) < 0.01 ? whole : Math.round(f * 1000) / 1000;
+    return { value: r, text: String(r) };
+  }
+
   // atempo accepts 0.5..2 per stage, so larger changes chain several stages.
   function atempoChain(speed) {
     const parts = [];
@@ -170,7 +181,7 @@
     return parts.join(',');
   }
 
-  const api = { CANVASES, DEFAULTS, normalize, isDefault, layout, atempoChain, autoFrame, faceCentre, cropToDisplay, displayToCrop };
+  const api = { CANVASES, DEFAULTS, normalize, isDefault, layout, atempoChain, frameRate, autoFrame, faceCentre, cropToDisplay, displayToCrop };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineFrame = api;
 })(typeof window !== 'undefined' ? window : globalThis);

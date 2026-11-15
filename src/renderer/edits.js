@@ -88,6 +88,24 @@
     return kept;
   }
 
+  // Move every range edge to the nearest video frame (fps frames per second). The export cuts
+  // video on whole frames, so ranges that sit on frames make the edited timeline exact: without
+  // this each cut adds a few milliseconds and captions drift early. Ranges shorter than a frame
+  // go; ranges that touch after rounding join.
+  function snapRanges(ranges, fps) {
+    if (!(fps > 0)) return ranges;
+    const frames = [];
+    for (const [s, e] of ranges) {
+      const a = Math.round(s * fps);
+      const b = Math.round(e * fps);
+      if (b <= a) continue;
+      const last = frames[frames.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+      else frames.push([a, b]);
+    }
+    return frames.map(([a, b]) => [a / fps, b / fps]);
+  }
+
   // Position on the edited timeline for a time in the original media. Times inside a cut
   // map to where the cut was made.
   function toEdited(kept, t) {
@@ -353,7 +371,7 @@
 
   const api = {
     FILLERS, MIN_GAP, GAP_KEEP,
-    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, mergeRanges, toEdited, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength,
+    normalize, fillerIndices, findRetakes, findPhrase, replaceAll, applyWordList, gaps, computeCuts, keptRanges, snapRanges, mergeRanges, toEdited, toSource, cutAt, skipTarget, replaceWords, cutRange, restoreWords, segmentAt, wordAt, totalLength,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CutlineEdits = api;

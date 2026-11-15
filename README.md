@@ -176,11 +176,13 @@ npm run test:e2e
   - `project-flows.js` (open, transcribe, home, save, rename), `export-dialog.js`, `keys-dialog.js`, `engine-options.js`, `file-drop.js`
   - `workspace.js` (layouts, resizable timeline), `timeline-tools.js`, `platform-text.js` (Ctrl vs ⌘, phone wording)
 - `scripts/build-whisper.sh`: builds the whisper.cpp engine
+- `scripts/bench-export.js`: times the export recipe on a long source with many cuts (`node scripts/bench-export.js 60 50,200,800`)
 
 ## Notes
 
 - Recordings are cut at their quietest moments into clips of at most 8 seconds, transcribed independently. In longer windows Whisper drops repeated takes and late phrases, and on code-mixed speech one bad stretch can swallow the rest; short clips avoid both.
 - A second pass finds speech that still has no words and transcribes just those stretches again without the style prompt, falling back to the Accurate model when Fast returns nothing (it does for some Telugu).
+- Export puts the video on a constant frame grid at the source's own frame rate (up to 60) and cuts on whole frames, so each kept piece is exactly as long as the timeline says and captions stay in step after any number of cuts. Each side of a cut fades the sound over 5 ms so it does not click. Kept pieces are read in groups of 32, each through its own seek into the file, which keeps export time from growing with the number of cuts.
 - Word times come from whisper.cpp's DTW alignment (`--dtw`), shifted back from each clip to the original timeline.
 - For Indian languages Whisper is given a short code-mixed example sentence, so English words come out in English letters ("account setup చేయడానికి") as people write them, instead of in the native script.
 - Telugu accuracy is far from perfect: spellings are often approximate and an occasional phrase is dropped. Whisper's Telugu is much weaker than its English; a cloud speech service would do better if that matters more than keeping everything on this Mac.

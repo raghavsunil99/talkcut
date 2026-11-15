@@ -448,6 +448,8 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'cutline-export-'));
   try {
     const info = await probe(media.path);
+    // The same frame-aligned ranges the page used for overlays, so captions match them.
+    if (info.hasVideo) ranges = Edits.snapRanges(ranges, Frame.frameRate(info.fps).value);
     const withPicture = media.hasVideo && !preset.audioOnly && !/\.(m4a|wav|mp3)$/i.test(filePath);
     const { frame } = Frame.layout(info.width || 1280, info.height || 720, clip);
     let assPath = null;
@@ -499,6 +501,7 @@ handle('media:export', async (_event, { media, ranges, overlays = [], audio = []
       duration: media.duration,
       width: info.width,
       height: info.height,
+      fps: info.fps,
       overlays: checked,
       audio: media.hasAudio ? sounds : [],
       assPath,

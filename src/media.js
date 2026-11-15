@@ -61,8 +61,16 @@ async function probe(filePath) {
     const rot = stderr.match(/displaymatrix: rotation of (-?[\d.]+) degrees/);
     if (rot && Math.abs(Math.round(Number(rot[1]))) % 180 === 90) [width, height] = [height, width];
   }
+  // Frames per second of the video ("29.97 fps"; "tbr" when ffmpeg reports no fps).
+  let fps = null;
+  if (videoLine >= 0) {
+    const line = stderr.split('\n')[videoLine];
+    const m = line.match(/, ([\d.]+) fps/) ?? line.match(/, ([\d.]+) tbr/);
+    if (m && Number(m[1]) > 0) fps = Number(m[1]);
+  }
   return {
     duration,
+    fps,
     hasVideo: videoLine >= 0,
     hasAudio: /Stream #\d+:\d+.*: Audio:/.test(stderr),
     width,
