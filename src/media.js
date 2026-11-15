@@ -57,7 +57,7 @@ function runFfmpeg(args, { onStderr, collectStdout = false, signal } = {}) {
 
 // ffmpeg -i with no output always exits non-zero, so parse its stderr directly.
 // Shared with the Android app: square pixels, Studio Sound and the export recipe.
-const { SQUARE, STUDIO_SOUND, buildRenderArgs } = require('./renderer/render-plan');
+const { SQUARE, STUDIO_SOUND, buildRenderArgs, voiceChain } = require('./renderer/render-plan');
 
 async function probe(filePath) {
   let stderr = '';
@@ -201,9 +201,56 @@ async function findFaces(filePath, duration, workDir, { samples = 16 } = {}) {
   return files.map((f, i) => ({ t: (i + 0.5) * interval, faces: byFile.get(f) ?? [] }));
 }
 
+// The RNNoise model Studio Sound uses (assets/rnnoise/README.md). In the installed app it sits in
+// app.asar.unpacked, where ffmpeg can read it.
+const RNNOISE_MODEL = path.join(__dirname, '..', 'assets', 'rnnoise', 'sh.rnnn').replace('app.asar', 'app.asar.unpacked');
+
+// The Studio Sound filter chain for an engine ('rnnoise' or 'classic') and strength (0 to 1),
+// as the export uses it.
+function studioChain(strength = 0.8, engine = 'rnnoise') {
+  return voiceChain({ engine: engine === 'classic' ? 'nlm' : 'rnnoise', strength, modelPath: RNNOISE_MODEL, filterPath });
+}
+
 // The cleaned voice as its own audio file, for previewing Studio Sound.
-async function enhanceAudio(filePath, outPath) {
-  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-af', `${STUDIO_SOUND},aresample=48000`, '-c:a', 'aac', '-b:a', '160k', outPath]);
+async function enhanceAudio(filePath, outPath, { strength = 0.8, engine = 'rnnoise' } = {}) {
+  await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-vn', '-af', `${studioChain(strength, engine)},aresample=48000`, '-c:a', 'aac', '-b:a', '160k', outPath]);
+}
+
+// Integrated loudness (LUFS) and true peak (dBTP) of a file's sound, as EBU R128 measures it.
+async function measureLoudness(filePath, { signal } = {}) {
+  const { stderr } = await runFfmpeg(['-hide_banner', '-nostdin', '-i', filePath, '-vn', '-af', 'loudnorm=print_format=json', '-f', 'null', '-'], { signal });
+  const json = JSON.parse(String(stderr).slice(String(stderr).lastIndexOf('{')));
+  return { lufs: Number(json.input_i), peak: Number(json.input_tp) };
+}
+
+// Bring an exported file to a loudness target (social platforms play at about -14 LUFS, podcasts
+// at -16). The sound is measured, turned up or down by the difference, with a limiter keeping
+// peaks under -1 dBTP, and measured again; when the limiter has taken some of the gain (loud
+// peaks in speech), the gain is raised by what is missing and the pass made again from the
+// original, at most four times. The picture is copied untouched. Done after the export so the
+// result is exact (a one-pass loudness filter drifts on short clips and lifts the hiss between
+// words). Returns the loudness before and after.
+async function matchLoudness(filePath, target, { signal, tolerance = 0.3 } = {}) {
+  const before = await measureLoudness(filePath, { signal });
+  if (!Number.isFinite(before.lufs) || before.lufs < -70) return { before, after: before };
+  if (Math.abs(before.lufs - target) <= tolerance && before.peak <= -1) return { before, after: before };
+  const ext = path.extname(filePath).toLowerCase();
+  const tmp = `${filePath}.loud${ext}`;
+  const codec = ext === '.wav' ? ['-c:a', 'pcm_s16le'] : ext === '.mp3' ? ['-c:a', 'libmp3lame', '-b:a', '192k'] : ['-c:a', 'aac', '-b:a', '192k'];
+  let gain = target - before.lufs;
+  let after = before;
+  try {
+    for (let tries = 0; tries < 4; tries++) {
+      await runFfmpeg(['-hide_banner', '-nostdin', '-y', '-i', filePath, '-map', '0', '-c:v', 'copy', '-af', `volume=${gain.toFixed(2)}dB,alimiter=limit=${(10 ** (-1.5 / 20)).toFixed(4)}:level=disabled`, ...codec, ...(/\.(mp4|mov|m4a)$/.test(ext) ? ['-movflags', '+faststart'] : []), tmp], { signal });
+      after = await measureLoudness(tmp, { signal });
+      if (Math.abs(after.lufs - target) <= tolerance) break;
+      gain += target - after.lufs;
+    }
+    await fsp.rename(tmp, filePath);
+  } finally {
+    await fsp.rm(tmp, { force: true });
+  }
+  return { before, after };
 }
 
 // Quote a path for use as a filter option value.
@@ -215,7 +262,7 @@ function filterPath(p) {
 
 // Render an edit (see renderer/render-plan.js for what goes into it).
 async function renderEdit({ onProgress, signal, ...options }) {
-  const { args, total } = buildRenderArgs({ ...options, filterPath });
+  const { args, total } = buildRenderArgs({ rnnoiseModel: fs.existsSync(RNNOISE_MODEL) ? RNNOISE_MODEL : null, ...options, filterPath });
   await runFfmpeg(args, {
     signal,
     onStderr: (text) => {
@@ -273,6 +320,6 @@ async function thumbnail(filePath, at = 0.5, height = 120) {
 }
 
 module.exports = {
-  probe, decodeToWav, encodeForUpload, enhanceAudio, STUDIO_SOUND, findSilences, extractClip, computePeaks, extractFrames, findFaces, thumbnail,
+  probe, decodeToWav, encodeForUpload, enhanceAudio, studioChain, measureLoudness, matchLoudness, RNNOISE_MODEL, STUDIO_SOUND, findSilences, extractClip, computePeaks, extractFrames, findFaces, thumbnail,
   prepareFontsDir, pixelAt, renderEdit, runFfmpeg, cancelledError, friendlyFfmpegError,
 };

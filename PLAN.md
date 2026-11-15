@@ -425,6 +425,7 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Opus 5.5
 
 #### 2.6 Clips from a long video
+**Status: skipped for now (your decision, 15 November 2026).** Not started.
 1. **Why:** one long recording should yield several Shorts.
 2. **Files:** `project-io.js`, `home.js`, `main.js` (`project:create`), new clip dialog.
 3. **Approach:**
@@ -437,6 +438,7 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Opus 5.5
 
 #### 2.7 Templates
+**Status: skipped for now (your decision, 15 November 2026).** Not started.
 1. **Why:** creators want every video to look like theirs without redoing settings.
 2. **Files:** `project-io.js`, `captions.js`, `text.js`, `frame.js`, settings storage in `main.js`.
 3. **Approach:**
@@ -449,6 +451,7 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Sonnet 5.5
 
 #### 2.8 Auto-frame that follows the speaker
+**Status: skipped for now (your decision, 15 November 2026).** Not started.
 1. **Why:** auto-frame uses one fixed position for the whole video, so it fails when the speaker moves.
 2. **Files:** `frame.js` (`autoFrame`, `faceCentre`), `media.js` (`findFaces`), `vendor/facedetect/main.swift`, `render-plan.js`, `preview.js`.
 3. **Approach:**
@@ -462,6 +465,15 @@ Result on ten realistic Telugu-English captions: the widest line is within 3 px 
 7. **Model:** Opus 5.5
 
 #### 2.9 Studio Sound v2
+**Status: done, with both versions kept (your choice), except the blind listening test, which needs you.** Studio Sound offers AI noise removal, which is RNNoise (ffmpeg's `arnndn`, in the bundled ffmpeg 6.0) with the "somnolent-hogwash" model (about 300 KB, in `assets/rnnoise/` with a note on where it comes from), and Classic, the original filters. Properties → Audio has the choice, a Strength slider (80% for AI, 100% for Classic, which is exactly the old chain) and a Loudness choice: as recorded, Social −14 LUFS or Podcast −16 LUFS. A project saved with Studio Sound on before the choice existed opens on Classic, so its export does not change; turning Studio Sound on from now starts on AI noise removal.
+- **Chain.** High-pass 75 Hz, resample to 48 kHz (RNNoise only works at 48 kHz; most phone and camera files are 44.1 or 48 kHz), `arnndn` mixed at the strength, a noise gate (without it the compressor lifts the pauses again and gives back 8 dB), then the same equaliser, compressor and limiter as before. The phone build has no model and keeps the old chain.
+- **Measured** with `scripts/bench-sound.js`: 6 FLEURS read-speech clips (te, hi, en) mixed with synthetic rumble, hiss, mains hum and a babble of voices at 5 and 10 dB, old chain against the new one at its 80% default. Results are mixed, so listening decides (see Not done):
+  - Noise left in the pauses is much lower for every noise: rumble −16.9 → −30.5 dB, hiss −7.3 → −25.5 dB, hum −17.6 → −30.5 dB, babble −7.4 → −12.4 dB.
+  - Speech quality (SI-SDR against the clean clip, higher is better) improves clearly on hiss, 7.3 → 12.3 dB (the old chain did nothing against a cheap phone mic's hiss), and is a little lower on rumble (12.9 → 11.8) and hum (12.3 → 11.9).
+  - On babble it is worse: 6.6 dB against the old chain's 7.7 and the untouched noisy clip's 7.5, so in a room full of people Studio Sound at 80% damages speech slightly; at 50% it is 7.9. Lower the strength there.
+- **Loudness.** The export is measured after rendering and its sound turned up or down to the target, with a −1 dBTP limiter; when the limiter takes some of the gain the pass is repeated with the shortfall added (aiming within 0.3 LU, at most four passes). Lands within 0.5 LU in the tests, for MP4, M4A, WAV and stereo MP3; the picture is copied untouched. It is done after the export rather than with ffmpeg's one-pass `loudnorm`, which drifts on short clips and lifts the hiss between words. The preview does not apply the loudness target.
+- **Checked by.** `test/sound.test.js`: the chain and settings, a real Studio Sound export of macOS text-to-speech with hiss from a folder whose name has a space (speech over hiss up by more than 10 dB, and different from the old chain's output, so RNNoise really ran), and the loudness target for −14, −16 and −23 on video, M4A and WAV. `test/e2e/sound.e2e.js`: strength and −14 LUFS set in Properties, saved, and the export measured at −14 ± 1 LUFS.
+- **Not done.** The blind comparison on three noisy clips in the acceptance needs real recordings and a listener. The benchmark saves the same noisy clip through the old and new chains to `<tmp>/talkcut-bench-sound/listen` to start with (read speech with synthetic noise, not a creator's recording). The model has no formal licence, only that repository's statement that it is not subject to copyright. The model's path inside an installed app (`app.asar.unpacked`) has not been tried in a packaged build. Changing Strength makes a new preview file (a few seconds per minute of audio).
 1. **Why:** phone-recorded speech in noisy rooms is the norm, and filters only go so far.
 2. **Files:** `render-plan.js` (`STUDIO_SOUND`), `media.js` (`enhanceAudio`), `properties.js`.
 3. **Approach:**

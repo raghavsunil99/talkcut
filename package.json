@@ -53,6 +53,7 @@
     "files": [
       "src/**/*",
       "assets/fonts/*",
+      "assets/rnnoise/*",
       "package.json",
       "!node_modules/ffmpeg-static/ffmpeg",
       "!node_modules/ffmpeg-static/*.README",
@@ -155,7 +156,8 @@
       ]
     },
     "asarUnpack": [
-      "assets/fonts/*"
+      "assets/fonts/*",
+      "assets/rnnoise/*"
     ]
   }
 }

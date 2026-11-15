@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('cutline', {
   openBroll: () => ipcRenderer.invoke('broll:open'),
   describeBroll: (filePath) => ipcRenderer.invoke('broll:describe', filePath),
   openAudio: () => ipcRenderer.invoke('audio:open'),
-  enhancedAudio: (filePath) => ipcRenderer.invoke('audio:enhanced', filePath),
+  enhancedAudio: (filePath, strength, engine) => ipcRenderer.invoke('audio:enhanced', filePath, strength, engine),
   findFaces: (filePath, duration) => ipcRenderer.invoke('media:faces', { filePath, duration }),
   describeAudio: (filePath) => ipcRenderer.invoke('audio:describe', filePath),
   searchStock: (query, kind, orientation) => ipcRenderer.invoke('stock:search', { query, kind, orientation }),
