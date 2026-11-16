@@ -60,7 +60,9 @@
       if (remember) { try { localStorage.setItem('cutline.timelineHeight', String(height)); } catch {} }
       window.dispatchEvent(new Event('resize'));
     }
-    try { setTimelineHeight(Number(localStorage.getItem('cutline.timelineHeight')) || 300, false); } catch { setTimelineHeight(300, false); }
+    const defaultHeight = appearance.s.timelineH ?? 240;
+    if (CutlineAppearance.migrated) setTimelineHeight(defaultHeight);
+    else try { setTimelineHeight(Number(localStorage.getItem('cutline.timelineHeight')) || defaultHeight, false); } catch { setTimelineHeight(defaultHeight, false); }
     // Collapsed, the timeline is just its bar (time, transport, zoom). Click the handle on its
     // top edge, or press ⌥⌘T, to open or close it; drag the handle to resize.
     function setCollapsed(on) {

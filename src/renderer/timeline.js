@@ -9,7 +9,9 @@
   const MIN_PPS = 8;
   const MAX_PPS = 1200;
   const TICK_STEPS = [0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-  const H = { ruler: 26, overlay: 40, film: 66, words: 32, wave: 52, audio: 42, gap: 6 };
+  const H = { ruler: 26, overlay: 40, film: 56, wave: 66, audio: 42, gap: 6 };
+  // Words and pauses sit in a strip along the top of the voice track, as labels on the audio.
+  const WORD_STRIP = 22;
   // Track height from Settings (html[data-thumbs]): media rows grow, words and ruler stay readable.
   const SCALE = { small: 0.75, medium: 1, large: 1.35 };
 
@@ -138,8 +140,8 @@
       for (const t of [...this.tracks].filter((t) => t.type === 'overlay').reverse()) rows.tracks.push({ id: t.id, y: take(size(H.overlay)) });
       if (this.captionSpans?.length) rows.caps = take(30);
       rows.film = take(size(H.film));
-      rows.words = take(H.words);
-      rows.wave = take(size(H.wave));
+      rows.wave = take(Math.max(WORD_STRIP + 30, size(H.wave)));
+      rows.words = [rows.wave[0], rows.wave[0] + WORD_STRIP];
       for (const t of this.tracks.filter((t) => t.type === 'audio')) rows.tracks.push({ id: t.id, y: take(size(H.audio)) });
       rows.height = y + 6;
       return rows;
@@ -168,8 +170,10 @@
       // Open zoomed in so a typical word block is wide enough to read; Fit shows it all.
       const lengths = words.map((w) => w.end - w.start).filter((d) => d > 0.05).sort((a, b) => a - b);
       const typical = lengths.length ? lengths[Math.floor(lengths.length / 2)] : 0.4;
+      // Open showing about 20 s (all of a shorter video), with words still wide enough to read.
       const width = this.scroll.clientWidth || 1200;
-      this.pps = Math.min(600, Math.max(BASE_PPS, width / 12, 64 / typical));
+      const shown = Math.min(20, Math.max(4, duration + 1));
+      this.pps = Math.min(600, Math.max(MIN_PPS, width / shown, Math.min(BASE_PPS, 24 / typical)));
       this.layout();
       this.scroll.scrollLeft = 0;
     }
@@ -381,7 +385,6 @@
       }
       if (this.rows.caps) row(this.rows.caps, [text('Captions')], 'caps');
       row(this.rows.film, [text('Video')], 'main');
-      row(this.rows.words, [text('Words', 'tl-head-name dim')], 'main');
       row(this.rows.wave, [text('Voice', 'tl-head-name dim')], 'main');
       this.heads.replaceChildren(frag);
       this.heads.style.height = `${this.rows.height}px`;
@@ -592,8 +595,9 @@
     // The voice as an audio clip: a tinted block with mirrored bars (2 px bars when zoomed in).
     drawWave(ctx, left, w) {
       const [top, bottom] = this.rows.wave;
-      const mid = (top + bottom) / 2;
-      const half = (bottom - top) / 2 - 3;
+      // The bars fill the part below the word strip.
+      const mid = (top + WORD_STRIP + bottom) / 2;
+      const half = (bottom - top - WORD_STRIP) / 2 - 3;
       const clipW = this.editedDuration * this.pps;
       ctx.save();
       ctx.beginPath();

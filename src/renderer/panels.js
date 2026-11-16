@@ -106,12 +106,14 @@
       this.renderCaptionsPanel();
       this.loadSavedStyles();
       this.buildMediaPanel();
-      this.toggle(Panels.lastPanel());
+      // The side panel starts closed so the video has the room; the rail opens a panel, and
+      // selecting something on the timeline opens Properties.
+      this.toggle(null);
     }
 
     // The panel last shown, so the side panel reopens where you were.
     static lastPanel() {
-      try { return localStorage.getItem('cutline.lastPanel') || 'captions'; } catch { return 'captions'; }
+      try { return localStorage.getItem('cutline.lastPanel') || 'project'; } catch { return 'project'; }
     }
 
     toggle(name) {

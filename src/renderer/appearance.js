@@ -18,7 +18,7 @@
   // Workspaces set panel sizes and visibility; your own changes are kept on top until you
   // pick a workspace again.
   const WORKSPACES = {
-    studio: { label: 'Studio', key: '1', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.5, sidebarW: 300, timelineH: 300, guides: false } },
+    studio: { label: 'Studio', key: '1', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.42, sidebarW: 300, timelineH: 240, guides: false } },
     video: { label: 'Video first', key: '2', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.26, sidebarW: 320, timelineH: 380, guides: false } },
     script: { label: 'Script first', key: '3', layout: { transcript: true, sidebar: false, timeline: true, transcriptW: 0.62, sidebarW: 300, timelineH: 170, guides: false } },
     reels: { label: 'Reels', key: '4', layout: { transcript: true, sidebar: true, timeline: true, transcriptW: 0.36, sidebarW: 320, timelineH: 220, guides: true } },
@@ -26,11 +26,22 @@
 
   const DEFAULTS = {
     theme: 'dark', accent: 'violet', density: 'comfortable', textSize: 18, font: 'system', thumbs: 'medium',
-    workspace: 'studio', ...WORKSPACES.studio.layout, grid: false,
+    workspace: 'studio', ...WORKSPACES.studio.layout, grid: false, layoutVersion: 2,
   };
 
+  // Layout version 2 gave the video more room (a narrower script, a shorter timeline). A layout
+  // saved before it is reset once to its workspace's sizes; theme, text and the rest are kept.
+  let migrated = false;
   function load() {
-    try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+    const s = { ...DEFAULTS, ...saved };
+    if (Object.keys(saved).length && saved.layoutVersion !== DEFAULTS.layoutVersion) {
+      Object.assign(s, (WORKSPACES[s.workspace] ?? WORKSPACES.studio).layout, { layoutVersion: DEFAULTS.layoutVersion });
+      migrated = true;
+      try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+    }
+    return s;
   }
 
   // Readable text on an accent fill.
@@ -235,5 +246,6 @@
     }
   }
 
-  root.CutlineAppearance = { Appearance, WORKSPACES, ACCENTS };
+  // migrated: the saved layout was reset this launch (the timeline height follows it).
+  root.CutlineAppearance = { Appearance, WORKSPACES, ACCENTS, get migrated() { return migrated; } };
 })(window);
