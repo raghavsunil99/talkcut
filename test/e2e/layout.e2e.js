@@ -95,9 +95,12 @@ test('script gutter, cut words shown struck through, palette, timeline collapse 
     await H.until(() => fs.existsSync(path.join(path.dirname(file), 'Interview.talkcut')), 'the rename');
     await H.closeApp(app);
 
-    // After a relaunch the side panel opens where it was.
+    // After a relaunch the side panel starts closed (the video gets the room); the toolbar
+    // button opens it where it was.
     ({ app, page } = await H.launch(dir));
     await H.openFromHome(page);
+    assert.ok(await page.locator('.sidebar').isHidden());
+    await page.click('#btn-toggle-sidebar');
     assert.ok(await page.locator('#panel-media').isVisible());
   } finally {
     await H.closeApp(app);
@@ -137,6 +140,40 @@ test('scenes: start with "/", rename, reorder in the rail, remove; saved with th
     await page.locator('#transcript .scene-remove').click();
     await H.until(async () => (await page.locator('#transcript .scene-head').count()) === 0, 'the scene to go');
     assert.ok(await page.locator('#scene-rail').isHidden());
+  } finally {
+    await H.closeApp(app);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Room for the video: on a 1440×900 window a 16:9 video gets a real preview, the side panel
+// starts closed, there is no black box around the picture, and the words sit on the voice track.
+test('the video gets the room on a laptop screen', TIMEOUT, async () => {
+  const dir = H.tempDir();
+  H.makeProject(dir, H.makeVideo(dir, { size: '1280x720' }));
+  const { app, page } = await H.launch(dir);
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 900));
+    await H.openFromHome(page);
+    await page.waitForTimeout(300);
+    // The side panel is closed until you open it from the rail.
+    assert.ok(await page.locator('.sidebar').isHidden(), 'side panel closed at start');
+    assert.equal(await page.locator('.rail-btn.on').count(), 0);
+    const pic = await page.locator('#pic').boundingBox();
+    assert.ok(pic.width >= 600, `preview picture ${Math.round(pic.width)} px wide`);
+    assert.ok(Math.abs(pic.width / pic.height - 16 / 9) < 0.02);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.player')).backgroundColor), 'rgba(0, 0, 0, 0)');
+    // The timeline is shorter, and words are labels on the voice track, not a row of their own.
+    const tl = await page.locator('.timeline-panel').boundingBox();
+    assert.ok(tl.height <= 260, `timeline ${Math.round(tl.height)} px tall`);
+    const heads = await page.locator('.tl-head').allTextContents();
+    assert.ok(!heads.some((t) => t.trim() === 'Words'), heads.join(', '));
+    const chip = await page.locator('.tl-chip.word').first().boundingBox();
+    const voice = await page.locator('.tl-head:has-text("Voice")').boundingBox();
+    assert.ok(chip.y >= voice.y - 1 && chip.y + chip.height <= voice.y + voice.height + 1, 'word labels on the voice track');
+    // Opening a panel from the rail still works; with no history it is Project.
+    await page.click('#btn-toggle-sidebar');
+    await page.locator('#panel-project:not([hidden])').waitFor();
   } finally {
     await H.closeApp(app);
     fs.rmSync(dir, { recursive: true, force: true });

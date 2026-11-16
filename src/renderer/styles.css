@@ -171,7 +171,8 @@ a { color: var(--accent); }
   position: relative;
   flex: 1;
   min-height: 0;
-  background: #000;
+  /* No black box around the picture: the frame (#stage) carries its own background. */
+  background: transparent;
   border-radius: var(--radius);
   overflow: hidden;
 }
@@ -421,15 +422,16 @@ a { color: var(--accent); }
   bottom: 1px;
   display: flex;
   align-items: center;
-  padding: 0 7px;
-  border-radius: 6px;
-  font-size: 12.5px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 11.5px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: pointer;
 }
-.tl-chip.word { background: var(--chip); color: var(--chip-text); border: 1px solid var(--chip-border, #403f48); }
+/* Word labels over the top of the voice track: light enough that the track still reads as audio. */
+.tl-chip.word { background: color-mix(in srgb, var(--chip) 70%, transparent); color: var(--chip-text); border: 1px solid var(--chip-border, #403f48); }
 .tl-chip.word:hover { border-color: var(--muted); color: var(--text); }
 .tl-chip.gap { background: transparent; color: var(--muted); border: 1px dashed var(--chip-border, #4a4954); justify-content: center; padding: 0 2px; font-size: 11px; }
 .tl-chip.gap.shortened { border-color: var(--cut); color: var(--cut); }
@@ -456,7 +458,8 @@ a { color: var(--accent); }
 }
 
 /* Overlay, toast, drop */
-.overlay { position: fixed; inset: 0; background: rgba(10, 11, 13, 0.72); display: grid; place-items: center; z-index: 10; }
+/* Above the preview's editing layer (.canvas-ui, 40–45), which would otherwise take its clicks. */
+.overlay { position: fixed; inset: 0; background: rgba(10, 11, 13, 0.72); display: grid; place-items: center; z-index: 50; }
 .overlay-card { width: 400px; padding: 26px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; }
 .overlay-title { font-weight: 600; font-size: 16px; margin-top: 14px; }
 .overlay-cancel { margin-top: 16px; }
@@ -479,7 +482,7 @@ a { color: var(--accent); }
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 20;
+  z-index: 55;
 }
 .toast.error { border-color: var(--cut); }
 
@@ -748,7 +751,6 @@ a { color: var(--accent); }
   --now: rgba(255, 190, 40, 0.35); --hover: rgba(0, 0, 0, 0.05); --broll: #9fd8c7;
   color-scheme: light;
 }
-:root[data-theme="light"] .player { background: #1a1a1d; }
 
 /* Density */
 :root[data-density="compact"] .toolbar { height: 44px; gap: 8px; }
